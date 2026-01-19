@@ -74,6 +74,33 @@ public class EnergyTickSystem extends EntityTickingSystem<ChunkStore> {
         }
     }
 
+    private boolean isConnectedToNode(int x, int y, int z, CommandBuffer<ChunkStore> commandBuffer, BlockComponentChunk blockComponentChunk, Set<Position> seenBlocks) {
+        if (!seenBlocks.add(new Position(x, y, z))) {
+            return false;
+        }
+
+        Ref<ChunkStore> blockReference = blockComponentChunk.getEntityReference(ChunkUtil.indexBlockInColumn(x,y,z));
+
+        if (blockReference == null) {
+            return false;
+        }
+
+        if (commandBuffer.getComponent(blockReference, EnergyNode.getComponentType()) != null) {
+            return true;
+        }
+
+        return commandBuffer.getComponent(blockReference, EnergyTransfer.getComponentType()) != null && checkSurroundingBlocksForNode(x, y, z,  commandBuffer, blockComponentChunk, seenBlocks);
+    }
+
+    private boolean checkSurroundingBlocksForNode(int x, int y, int z, CommandBuffer<ChunkStore> commandBuffer, BlockComponentChunk blockComponentChunk, Set<Position> seenBlocks) {
+        return isConnectedToNode(x + 1, y, z, commandBuffer, blockComponentChunk, seenBlocks) ||
+                isConnectedToNode(x - 1, y, z, commandBuffer, blockComponentChunk, seenBlocks) ||
+                isConnectedToNode(x, y + 1, z, commandBuffer, blockComponentChunk, seenBlocks) ||
+                isConnectedToNode(x, y - 1, z, commandBuffer, blockComponentChunk, seenBlocks) ||
+                isConnectedToNode(x, y, z + 1, commandBuffer, blockComponentChunk, seenBlocks) ||
+                isConnectedToNode(x, y, z - 1, commandBuffer, blockComponentChunk, seenBlocks);
+    }
+
     @Nullable
     @Override
     public Query<ChunkStore> getQuery() {
