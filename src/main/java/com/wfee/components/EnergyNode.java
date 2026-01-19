@@ -5,13 +5,13 @@ import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.component.Component;
 import com.hypixel.hytale.component.ComponentType;
-import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import com.wfee.EnergyModule;
+import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
+import com.wfee.Enertalic;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class EnergyNode implements Component<EntityStore> {
+public class EnergyNode implements Component<ChunkStore> {
 
     @Nonnull
     /* Maybe switch to double later on*/
@@ -34,13 +34,13 @@ public class EnergyNode implements Component<EntityStore> {
     private Long maxEnergy = 0L;
 
     @Nonnull
-    public static ComponentType<EntityStore, EnergyNode> getComponentType() {
-        return EnergyModule.get().getEnergyNodeComponentType();
+    public static ComponentType<ChunkStore, EnergyNode> getComponentType() {
+        return Enertalic.get().getEnergyNodeComponentType();
     }
 
     @Nullable
     @Override
-    public Component<EntityStore> clone() {
+    public Component<ChunkStore> clone() {
         return new EnergyNode();
     }
 }
