@@ -1,6 +1,12 @@
 {
-  "Group": "com.wfee",
-  "Name": "Enertalic",
-  "Version": "0.0.1",
-  "Main": "com.wfee.EnertalicPlugin"
+  "Group": "${group}",
+  "Name": "${name}",
+  "Version": "${version}",
+  "Authors": [
+    {
+      "Name": "${author}"
+    }
+  ],
+  "Main": "${main_entrypoint}",
+  "IncludesAssetPack": true
 }
