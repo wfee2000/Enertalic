@@ -1,10 +1,10 @@
-package com.wfee.components;
+package com.wfee.enertalic.components;
 
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.component.Component;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
-import com.wfee.data.EnergySideConfig;
+import com.wfee.enertalic.data.EnergySideConfig;
 
 import javax.annotation.Nullable;
 

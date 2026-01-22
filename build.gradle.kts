@@ -14,7 +14,6 @@ val installation = "$hytalePath/install/release/package/game/latest"
 val serverFile = "$installation/Server/HytaleServer.jar"
 val modPath = "$hytalePath/UserData/Mods"
 
-
 dependencies {
     if (file(installation).exists()) {
         compileOnly(files(serverFile))
@@ -30,7 +29,7 @@ tasks.named<ProcessResources>("processResources") {
     var replaceProperties = mapOf(
         "group" to project.group,
         "version" to project.version,
-        "main_entrypoint" to "${project.group}.${rootProject.name}",
+        "main_entrypoint" to findProperty("main_entrypoint"),
         "name" to rootProject.name,
         "author" to findProperty("author")
     )

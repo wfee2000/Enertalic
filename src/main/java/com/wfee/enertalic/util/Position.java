@@ -1,4 +1,4 @@
-package com.wfee.util;
+package com.wfee.enertalic.util;
 
 public record Position(int x, int y, int z)
 {

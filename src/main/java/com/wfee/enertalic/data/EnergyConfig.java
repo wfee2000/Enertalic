@@ -1,4 +1,4 @@
-package com.wfee.data;
+package com.wfee.enertalic.data;
 
 public enum EnergyConfig {
     IN,

@@ -1,4 +1,4 @@
-package com.wfee.data;
+package com.wfee.enertalic.data;
 
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;

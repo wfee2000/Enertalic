@@ -1,13 +1,13 @@
-package com.wfee;
+package com.wfee.enertalic;
 
 import com.hypixel.hytale.component.ComponentRegistryProxy;
 import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
-import com.wfee.components.EnergyNode;
-import com.wfee.components.EnergyTransfer;
-import com.wfee.systems.EnergyTickSystem;
+import com.wfee.enertalic.components.EnergyNode;
+import com.wfee.enertalic.components.EnergyTransfer;
+import com.wfee.enertalic.systems.EnergyTickSystem;
 
 import javax.annotation.Nonnull;
 

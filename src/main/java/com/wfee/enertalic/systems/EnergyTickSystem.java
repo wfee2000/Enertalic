@@ -1,4 +1,4 @@
-package com.wfee.systems;
+package com.wfee.enertalic.systems;
 
 import com.hypixel.hytale.component.*;
 import com.hypixel.hytale.component.query.Query;
@@ -11,11 +11,11 @@ import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.ChunkSection;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.npc.util.NPCPhysicsMath;
-import com.wfee.components.EnergyBase;
-import com.wfee.components.EnergyNode;
-import com.wfee.components.EnergyTransfer;
-import com.wfee.data.EnergySideConfig;
-import com.wfee.util.Position;
+import com.wfee.enertalic.components.EnergyBase;
+import com.wfee.enertalic.components.EnergyNode;
+import com.wfee.enertalic.components.EnergyTransfer;
+import com.wfee.enertalic.data.EnergySideConfig;
+import com.wfee.enertalic.util.Position;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

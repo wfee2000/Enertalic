@@ -1,4 +1,4 @@
-package com.wfee.components;
+package com.wfee.enertalic.components;
 
 import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
@@ -6,7 +6,7 @@ import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.component.Component;
 import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
-import com.wfee.Enertalic;
+import com.wfee.enertalic.Enertalic;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
