@@ -11,7 +11,7 @@ import com.wfee.Enertalic;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class EnergyNode implements Component<ChunkStore> {
+public class EnergyNode extends EnergyBase {
 
     @Nonnull
     /* Maybe switch to double later on*/
@@ -19,7 +19,7 @@ public class EnergyNode implements Component<ChunkStore> {
     public static final KeyedCodec<Long> MAX_ENERGY = new KeyedCodec<>("MaxEnergy", Codec.LONG);
     public static final BuilderCodec<EnergyNode> CODEC =
             BuilderCodec
-                    .builder(EnergyNode.class, EnergyNode::new)
+                    .builder(EnergyNode.class, EnergyNode::new, EnergyBase.CODEC)
                         .append(CURRENT_ENERGY,
                                 (object, value) -> object.currentEnergy = value,
                                 object -> object.currentEnergy)
@@ -30,8 +30,48 @@ public class EnergyNode implements Component<ChunkStore> {
                         .add()
                     .build();
 
-    private Long currentEnergy = 0L;
-    private Long maxEnergy = 0L;
+    private long currentEnergy = 0L;
+    private long maxEnergy = 0L;
+
+    public long getCurrentEnergy()
+    {
+        return currentEnergy;
+    }
+
+    public void setCurrentEnergy(long value)
+    {
+        this.currentEnergy = value;
+    }
+
+    public void addEnergy(long value)
+    {
+        this.currentEnergy += value;
+        if (this.currentEnergy > this.maxEnergy)
+        {
+            this.currentEnergy = this.maxEnergy;
+            throw new IllegalArgumentException();
+        }
+    }
+
+    public void removeEnergy(long value)
+    {
+        this.currentEnergy -= value;
+        if (this.currentEnergy < 0)
+        {
+            this.currentEnergy = 0;
+            throw new IllegalArgumentException();
+        }
+    }
+
+    public long getMaxEnergy()
+    {
+        return maxEnergy;
+    }
+
+    public void setMaxEnergy(long value)
+    {
+        this.maxEnergy = value;
+    }
 
     @Nonnull
     public static ComponentType<ChunkStore, EnergyNode> getComponentType() {
@@ -41,6 +81,12 @@ public class EnergyNode implements Component<ChunkStore> {
     @Nullable
     @Override
     public Component<ChunkStore> clone() {
-        return new EnergyNode();
+        EnergyNode clone = (EnergyNode) super.clone();
+
+        if (clone == null) return null;
+
+        clone.currentEnergy = this.currentEnergy;
+        clone.maxEnergy = this.maxEnergy;
+        return clone;
     }
 }
