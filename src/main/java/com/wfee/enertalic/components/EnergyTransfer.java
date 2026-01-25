@@ -16,12 +16,17 @@ public class EnergyTransfer extends EnergyBase {
     private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
 
     public static final KeyedCodec<Long> MAX_TRANSFER_RATE = new KeyedCodec<>("MaxTransferRate", Codec.LONG);
+    public static final KeyedCodec<Long> CURRENT_TRANSFER_RATE = new KeyedCodec<>("CurrentTransferRate", Codec.LONG);
     public static final BuilderCodec<EnergyTransfer> CODEC =
             BuilderCodec
                     .builder(EnergyTransfer.class, EnergyTransfer::new, EnergyBase.CODEC)
                         .append(MAX_TRANSFER_RATE,
                                 (object, value) -> object.maxTransferRate = value,
                                 object -> object.maxTransferRate)
+                        .add()
+                        .append(CURRENT_TRANSFER_RATE,
+                                (object, value) -> object.currentTransferRate = value,
+                                object -> object.currentTransferRate)
                         .add()
                     .build();
 

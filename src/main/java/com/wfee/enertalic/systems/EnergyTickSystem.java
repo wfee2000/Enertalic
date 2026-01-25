@@ -7,21 +7,22 @@ import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.server.core.asset.type.blocktick.BlockTickStrategy;
+import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.BlockComponentChunk;
+import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.ChunkSection;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
-import com.wfee.enertalic.components.EnergyBase;
 import com.wfee.enertalic.components.EnergyNode;
 import com.wfee.enertalic.components.EnergyTransfer;
 import com.wfee.enertalic.data.EnergySideConfig;
 import com.wfee.enertalic.util.Direction;
+import com.wfee.enertalic.util.EnergyTraversal;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 public class EnergyTickSystem extends EntityTickingSystem<ChunkStore> {
@@ -63,106 +64,134 @@ public class EnergyTickSystem extends EntityTickingSystem<ChunkStore> {
                     return BlockTickStrategy.IGNORED;
                 }
 
-                Set<Vector3i> seenBlocks = new HashSet<>();
-                Vector3i position = new Vector3i(localX, localY, localZ);
+                WorldChunk chunk = commandBuffer.getComponent(section.getChunkColumnReference(), WorldChunk.getComponentType());
 
-                seenBlocks.add(position);
-
-                List<EnergyBase> path = getPathToSingleImport(position, commandBuffer1, blockComponentChunk1, seenBlocks, node.getEnergySideConfig());
-
-                if (path != null) {
-                    EnergyNode destinationNode = null;
-                    long maxTransferRate = 0;
-
-                    for (EnergyBase energyBase : path) {
-                        if (energyBase instanceof EnergyNode pathNode) {
-                            destinationNode = pathNode;
-                        } else if (energyBase instanceof EnergyTransfer energyTransfer) {
-                            if (maxTransferRate < energyTransfer.getMaxTransferRate()) {
-                                maxTransferRate = energyTransfer.getMaxTransferRate();
-                            }
-                        } else {
-                            throw new IllegalArgumentException();
-                        }
-                    }
-
-                    if (destinationNode == null) {
-                        throw new IllegalStateException();
-                    }
-
-                    double speed = maxTransferRate * dt;
-
-                    if (speed > node.getCurrentEnergy()) {
-                        speed = node.getCurrentEnergy();
-                    }
-
-                    long freeSpace = destinationNode.getMaxEnergy() - destinationNode.getCurrentEnergy();
-
-                    if (speed > freeSpace) {
-                        speed = freeSpace;
-                    }
-
-                    node.removeEnergy((long)speed);
-                    destinationNode.addEnergy((long)speed);
-
-                    for (EnergyBase energyBase : path) {
-                        if (energyBase instanceof EnergyTransfer energyTransfer) {
-                            energyTransfer.setCurrentTransferRate((long)speed);
-                        } else if (!(energyBase instanceof EnergyNode)) {
-                            throw new IllegalArgumentException();
-                        }
-                    }
+                if (chunk == null) {
+                    return BlockTickStrategy.IGNORED;
                 }
+
+                World world = chunk.getWorld();
+
+                if (world == null) {
+                    return BlockTickStrategy.IGNORED;
+                }
+
+                computeNode(
+                        node,
+                        localX + chunk.getX() * 32,
+                        localY,
+                        localZ + chunk.getZ() * 32,
+                        dt,
+                        world,
+                        chunk
+                );
 
                 return BlockTickStrategy.CONTINUE;
             });
         }
     }
 
-    private List<EnergyBase> getConnection(Vector3i position, CommandBuffer<ChunkStore> commandBuffer, BlockComponentChunk blockComponentChunk, Set<Vector3i> seenBlocks, Direction direction) {
+    private void computeNode(
+            EnergyNode node,
+            int x,
+            int y,
+            int z,
+            double dt,
+            World world,
+            WorldChunk chunk) {
+        Set<Vector3i> seenBlocks = new HashSet<>();
+        Vector3i position = new Vector3i(x, y, z);
+
+        seenBlocks.add(position);
+
+        EnergyTraversal path = getPathToSingleImport(position, seenBlocks, node.getEnergySideConfig(), world);
+
+        if (path == null) {
+            return;
+        }
+
+        double speed = getSpeed(node, dt, path);
+
+        node.removeEnergy((long)speed);
+        path.destination().addEnergy((long)speed);
+
+        for (EnergyTransfer transfer : path.path()) {
+            transfer.setCurrentTransferRate((long)speed);
+        }
+        
+        chunk.markNeedsSaving();
+    }
+
+    private static double getSpeed(EnergyNode node, double dt, EnergyTraversal path) {
+        long maxTransferRate = 0;
+
+        for (EnergyTransfer transfer : path.path()) {
+            if (maxTransferRate < transfer.getMaxTransferRate()) {
+                maxTransferRate = transfer.getMaxTransferRate();
+            }
+        }
+
+        double speed = maxTransferRate * dt;
+
+        if (speed > node.getCurrentEnergy()) {
+            speed = node.getCurrentEnergy();
+        }
+
+        long freeSpace = path.destination().getMaxEnergy() - path.destination().getCurrentEnergy();
+
+        if (speed > freeSpace) {
+            speed = freeSpace;
+        }
+        return speed;
+    }
+
+    private EnergyTraversal getConnection(
+            Vector3i position,
+            Set<Vector3i> seenBlocks,
+            Direction direction,
+            World world) {
         if (!seenBlocks.add(position)) {
             return null;
         }
 
-        Ref<ChunkStore> blockReference = blockComponentChunk.getEntityReference(ChunkUtil.indexBlockInColumn(position.x, position.y, position.z));
+        Holder<ChunkStore> holder = world.getBlockComponentHolder(position.x, position.y, position.z);
 
-        if (blockReference == null) {
+        if (holder == null)
+        {
             return null;
         }
 
-        EnergyNode node = commandBuffer.getComponent(blockReference, EnergyNode.getComponentType());
+        EnergyNode node = holder.getComponent(EnergyNode.getComponentType());
 
         if (node != null && node.getEnergySideConfig().getDirection(direction).canImport()) {
-            return new ArrayList<>(List.of(node));
+            return new EnergyTraversal(node, new ArrayList<>());
         }
 
-        EnergyTransfer transfer = commandBuffer.getComponent(blockReference, EnergyTransfer.getComponentType());
+        EnergyTransfer transfer = holder.getComponent(EnergyTransfer.getComponentType());
 
         if (transfer == null) {
             return null;
         }
 
-        List<EnergyBase> path = getPathToSingleImport(position, commandBuffer, blockComponentChunk, seenBlocks, transfer.getEnergySideConfig());
+        EnergyTraversal path = getPathToSingleImport(position, seenBlocks, transfer.getEnergySideConfig(), world);
 
         if (path != null) {
-            path.add(transfer);
+            path.path().add(transfer);
         }
 
         return path;
     }
 
-    private List<EnergyBase> getPathToSingleImport(
+    private EnergyTraversal getPathToSingleImport(
             Vector3i position,
-            CommandBuffer<ChunkStore> commandBuffer,
-            BlockComponentChunk blockComponentChunk,
             Set<Vector3i> seenBlocks,
-            EnergySideConfig energySideConfig
-    ) {
-        List<EnergyBase> path;
+            EnergySideConfig energySideConfig,
+            World world) {
+        EnergyTraversal path;
 
         for (Direction direction : Direction.values()) {
             if (energySideConfig.getDirection(direction).canExport()) {
-                path = getConnection(position.add(direction.getOffset()), commandBuffer, blockComponentChunk, seenBlocks, direction.getOpposite());
+                path = getConnection(position.add(direction.getOffset()), seenBlocks, direction.getOpposite(), world);
 
                 if (path != null) {
                     return path;
