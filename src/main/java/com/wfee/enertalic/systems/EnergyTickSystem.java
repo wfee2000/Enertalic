@@ -64,6 +64,11 @@ public class EnergyTickSystem extends EntityTickingSystem<ChunkStore> {
                     return BlockTickStrategy.IGNORED;
                 }
 
+                if (node.getCurrentEnergy() == 0)
+                {
+                    return BlockTickStrategy.CONTINUE;
+                }
+
                 WorldChunk chunk = commandBuffer.getComponent(section.getChunkColumnReference(), WorldChunk.getComponentType());
 
                 if (chunk == null) {
@@ -118,7 +123,7 @@ public class EnergyTickSystem extends EntityTickingSystem<ChunkStore> {
         for (EnergyTransfer transfer : path.path()) {
             transfer.setCurrentTransferRate((long)speed);
         }
-        
+
         chunk.markNeedsSaving();
     }
 
