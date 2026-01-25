@@ -4,9 +4,10 @@ import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.logger.HytaleLogger;
-import com.hypixel.hytale.server.npc.util.NPCPhysicsMath;
+import com.wfee.enertalic.util.Direction;
 
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class EnergySideConfig {
@@ -26,7 +27,7 @@ public class EnergySideConfig {
         BuilderCodec.Builder<EnergySideConfig> builder = BuilderCodec.builder(EnergySideConfig.class, EnergySideConfig::new);
 
         for (int i = 0; i < 6; i++) {
-            NPCPhysicsMath.Direction direction = NPCPhysicsMath.Direction.values()[i];
+            Direction direction = Direction.values()[i];
             builder = builder
                     .append(DIRECTIONS[i],
                             (object, value) ->
@@ -38,74 +39,33 @@ public class EnergySideConfig {
         CODEC = builder.build();
     }
 
-    private final EnergyConfig[] sides;
+    private final Map<Direction, EnergyConfig> sides;
 
     public EnergySideConfig() {
         this(EnergyConfig.OFF, EnergyConfig.OFF, EnergyConfig.OFF, EnergyConfig.OFF, EnergyConfig.OFF, EnergyConfig.OFF);
     }
 
     public EnergySideConfig(EnergyConfig east, EnergyConfig west, EnergyConfig up, EnergyConfig down, EnergyConfig south, EnergyConfig north) {
-        sides = new EnergyConfig[]{east,west,up,down,south,north};
+        sides = new HashMap<>() {{
+            put(Direction.East, east);
+            put(Direction.West, west);
+            put(Direction.Up, up);
+            put(Direction.Down, down);
+            put(Direction.South, south);
+            put(Direction.North, north);
+        }};
     }
 
-    public EnergyConfig getEast() {
-        return sides[0];
+    public EnergyConfig getDirection(Direction direction) {
+        return sides.get(direction);
     }
 
-    public void setEast(EnergyConfig east) {
-        sides[0] = east;
-    }
-
-    public EnergyConfig getWest() {
-        return sides[1];
-    }
-
-    public void setWest(EnergyConfig west) {
-        sides[1] = west;
-    }
-
-    public EnergyConfig getUp() {
-        return sides[2];
-    }
-
-    public void setUp(EnergyConfig up) {
-        sides[2] = up;
-    }
-
-    public EnergyConfig getDown() {
-        return sides[3];
-    }
-
-    public void setDown(EnergyConfig down) {
-        sides[3] = down;
-    }
-
-    public EnergyConfig getSouth() {
-        return sides[5];
-    }
-
-    public void setSouth(EnergyConfig south) {
-        sides[5] = south;
-    }
-
-    public EnergyConfig getNorth() {
-        return sides[5];
-    }
-
-    public void setNorth(EnergyConfig north) {
-        sides[5] = north;
-    }
-
-    public EnergyConfig getDirection(NPCPhysicsMath.Direction direction) {
-        return sides[direction.ordinal()];
-    }
-
-    public void setDirection(NPCPhysicsMath.Direction direction, EnergyConfig config) {
-        sides[direction.ordinal()] = config;
+    public void setDirection(Direction direction, EnergyConfig config) {
+        sides.put(direction, config);
     }
 
     @Override
     public String toString() {
-        return Arrays.stream(sides).map(side -> String.valueOf(side.ordinal())).collect(Collectors.joining());
+        return sides.values().stream().map(side -> String.valueOf(side.ordinal())).collect(Collectors.joining());
     }
 }

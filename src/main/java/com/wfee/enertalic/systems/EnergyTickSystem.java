@@ -5,17 +5,17 @@ import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.util.ChunkUtil;
+import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.server.core.asset.type.blocktick.BlockTickStrategy;
 import com.hypixel.hytale.server.core.universe.world.chunk.BlockComponentChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.ChunkSection;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
-import com.hypixel.hytale.server.npc.util.NPCPhysicsMath;
 import com.wfee.enertalic.components.EnergyBase;
 import com.wfee.enertalic.components.EnergyNode;
 import com.wfee.enertalic.components.EnergyTransfer;
 import com.wfee.enertalic.data.EnergySideConfig;
-import com.wfee.enertalic.util.Position;
+import com.wfee.enertalic.util.Direction;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -63,10 +63,12 @@ public class EnergyTickSystem extends EntityTickingSystem<ChunkStore> {
                     return BlockTickStrategy.IGNORED;
                 }
 
-                Set<Position> seenBlocks = new HashSet<>();
-                seenBlocks.add(new Position(localX, localY, localZ));
+                Set<Vector3i> seenBlocks = new HashSet<>();
+                Vector3i position = new Vector3i(localX, localY, localZ);
 
-                List<EnergyBase> path = getPathToSingleImport(localX, localY, localZ, commandBuffer1, blockComponentChunk1, seenBlocks, node.getEnergySideConfig());
+                seenBlocks.add(position);
+
+                List<EnergyBase> path = getPathToSingleImport(position, commandBuffer1, blockComponentChunk1, seenBlocks, node.getEnergySideConfig());
 
                 if (path != null) {
                     EnergyNode destinationNode = null;
@@ -117,13 +119,12 @@ public class EnergyTickSystem extends EntityTickingSystem<ChunkStore> {
         }
     }
 
-    private List<EnergyBase> getConnection(int x, int y, int z, CommandBuffer<ChunkStore> commandBuffer, BlockComponentChunk blockComponentChunk, Set<Position> seenBlocks, NPCPhysicsMath.Direction direction) {
-        Position position = new Position(x, y, z);
+    private List<EnergyBase> getConnection(Vector3i position, CommandBuffer<ChunkStore> commandBuffer, BlockComponentChunk blockComponentChunk, Set<Vector3i> seenBlocks, Direction direction) {
         if (!seenBlocks.add(position)) {
             return null;
         }
 
-        Ref<ChunkStore> blockReference = blockComponentChunk.getEntityReference(ChunkUtil.indexBlockInColumn(x,y,z));
+        Ref<ChunkStore> blockReference = blockComponentChunk.getEntityReference(ChunkUtil.indexBlockInColumn(position.x, position.y, position.z));
 
         if (blockReference == null) {
             return null;
@@ -141,7 +142,7 @@ public class EnergyTickSystem extends EntityTickingSystem<ChunkStore> {
             return null;
         }
 
-        List<EnergyBase> path = getPathToSingleImport(x, y, z,  commandBuffer, blockComponentChunk, seenBlocks, transfer.getEnergySideConfig());
+        List<EnergyBase> path = getPathToSingleImport(position, commandBuffer, blockComponentChunk, seenBlocks, transfer.getEnergySideConfig());
 
         if (path != null) {
             path.add(transfer);
@@ -151,58 +152,22 @@ public class EnergyTickSystem extends EntityTickingSystem<ChunkStore> {
     }
 
     private List<EnergyBase> getPathToSingleImport(
-            int x,
-            int y,
-            int z,
+            Vector3i position,
             CommandBuffer<ChunkStore> commandBuffer,
             BlockComponentChunk blockComponentChunk,
-            Set<Position> seenBlocks,
+            Set<Vector3i> seenBlocks,
             EnergySideConfig energySideConfig
     ) {
         List<EnergyBase> path;
 
-        if (energySideConfig.getEast().canExport()) {
-            path = getConnection(x + 1, y, z, commandBuffer, blockComponentChunk, seenBlocks, NPCPhysicsMath.Direction.NEG_X);
+        for (Direction direction : Direction.values()) {
+            if (energySideConfig.getDirection(direction).canExport()) {
+                path = getConnection(position.add(direction.getOffset()), commandBuffer, blockComponentChunk, seenBlocks, direction.getOpposite());
 
-            if (path != null) {
-                return path;
+                if (path != null) {
+                    return path;
+                }
             }
-        }
-
-        if (energySideConfig.getWest().canExport()) {
-            path = getConnection(x - 1, y, z, commandBuffer, blockComponentChunk, seenBlocks, NPCPhysicsMath.Direction.POS_X);
-
-            if (path != null) {
-                return path;
-            }
-        }
-
-        if (energySideConfig.getUp().canExport()) {
-            path = getConnection(x, y + 1, z, commandBuffer, blockComponentChunk, seenBlocks, NPCPhysicsMath.Direction.NEG_Y);
-
-            if (path != null) {
-                return path;
-            }
-        }
-
-        if (energySideConfig.getDown().canExport()) {
-            path = getConnection(x, y - 1, z, commandBuffer, blockComponentChunk, seenBlocks,  NPCPhysicsMath.Direction.POS_Y);
-
-            if (path != null) {
-                return path;
-            }
-        }
-
-        if (energySideConfig.getSouth().canExport()) {
-            path = getConnection(x, y, z + 1, commandBuffer, blockComponentChunk, seenBlocks, NPCPhysicsMath.Direction.NEG_Z);
-
-            if (path != null) {
-                return path;
-            }
-        }
-
-        if (energySideConfig.getNorth().canExport()) {
-            return getConnection(x, y, z - 1, commandBuffer, blockComponentChunk, seenBlocks, NPCPhysicsMath.Direction.POS_Z);
         }
 
         return null;

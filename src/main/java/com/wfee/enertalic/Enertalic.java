@@ -30,10 +30,6 @@ public class Enertalic extends JavaPlugin {
         chunkStoreRegistry.registerSystem(new EnergyTickSystem());
     }
 
-    @Override
-    protected void start() {
-    }
-
     public static Enertalic get() {
         return instance;
     }
