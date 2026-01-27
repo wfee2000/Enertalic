@@ -1,0 +1,6 @@
+Energy_Cube.name = Energy Cube
+Energy_Cube.description = A Cube that stores Energy
+Energy_Cable.name = Energy Cable
+Energy_Cable.description = A Cable that transports Energy
+Energy_Source.name = Energy Source
+Energy_Source.description = An Energy Source that creates Energy

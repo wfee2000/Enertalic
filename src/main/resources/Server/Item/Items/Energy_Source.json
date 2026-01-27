@@ -1,0 +1,56 @@
+{
+  "TranslationProperties": {
+    "Name": "items.Energy_Source.name",
+    "Description": "items.Energy_Source.description"
+  },
+  "MaxStack": 100,
+  "PlayerAnimationsId": "Block",
+  "BlockType": {
+    "Material": "Solid",
+    "Gathering": {
+      "Breaking": {
+        "GatherType": "Rocks",
+        "ItemId": "Energy_Source"
+      }
+    },
+    "Textures": [
+      {
+        "Down": "BlockTextures/Energy_Source_Bottom.png",
+        "Sides": "BlockTextures/Energy_Source_Side.png",
+        "Up": "BlockTextures/Energy_Source_Top.png"
+      }
+    ],
+    "Interactions": {
+      "Use": "Open_Container"
+    },
+    "BlockEntity": {
+      "Components": {
+        "Enertalic:EnergyNode": {
+          "CurrentEnergy": 1000,
+          "MaxEnergy": 1000,
+          "EnergySideConfig": {
+            "East": 1,
+            "West": 1,
+            "Up": 1,
+            "Down": 1,
+            "North": 1,
+            "South": 1
+          }
+        }
+      }
+    }
+  },
+  "Icon": "Icons/ItemsGenerated/Energy_Source.png",
+  "IconProperties": {
+    "Scale": 0.58823,
+    "Rotation": [
+      22.5,
+      45,
+      22.5
+    ],
+    "Translation": [
+      0,
+      -13.5
+    ]
+  }
+}

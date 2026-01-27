@@ -1,0 +1,52 @@
+{
+  "TranslationProperties": {
+    "Name": "items.Energy_Cable.name",
+    "Description": "items.Energy_Cable.description"
+  },
+  "MaxStack": 100,
+  "PlayerAnimationsId": "Block",
+  "BlockType": {
+    "Material": "Solid",
+    "Gathering": {
+      "Breaking": {
+        "GatherType": "Rocks",
+        "ItemId": "Energy_Cable"
+      }
+    },
+    "Textures": [
+      {
+        "Down": "BlockTextures/Energy_Cable_Bottom.png",
+        "Sides": "BlockTextures/Energy_Cable_Side.png",
+        "Up": "BlockTextures/Energy_Cable_Top.png"
+      }
+    ],
+    "BlockEntity": {
+      "Components": {
+        "Enertalic:EnergyTransfer": {
+          "MaxTransferRate": 100,
+          "EnergySideConfig": {
+            "East": 2,
+            "West": 2,
+            "Up": 2,
+            "Down": 2,
+            "North": 2,
+            "South": 2
+          }
+        }
+      }
+    }
+  },
+  "Icon": "Icons/ItemsGenerated/Energy_Cable.png",
+  "IconProperties": {
+    "Scale": 0.58823,
+    "Rotation": [
+      22.5,
+      45,
+      22.5
+    ],
+    "Translation": [
+      0,
+      -13.5
+    ]
+  }
+}
