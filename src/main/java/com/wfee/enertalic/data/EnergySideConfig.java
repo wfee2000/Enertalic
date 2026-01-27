@@ -8,6 +8,7 @@ import com.wfee.enertalic.util.Direction;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class EnergySideConfig {
@@ -62,6 +63,10 @@ public class EnergySideConfig {
 
     public void setDirection(Direction direction, EnergyConfig config) {
         sides.put(direction, config);
+    }
+
+    public long countMatching(Predicate<EnergyConfig> predicate) {
+        return sides.values().stream().filter(predicate).count();
     }
 
     @Override

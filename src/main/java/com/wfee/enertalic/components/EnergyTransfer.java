@@ -12,14 +12,14 @@ import com.wfee.enertalic.Enertalic;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class EnergyTransfer extends EnergyBase {
+public class EnergyTransfer extends EnergyObject {
     private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
 
     public static final KeyedCodec<Long> MAX_TRANSFER_RATE = new KeyedCodec<>("MaxTransferRate", Codec.LONG);
     public static final KeyedCodec<Long> CURRENT_TRANSFER_RATE = new KeyedCodec<>("CurrentTransferRate", Codec.LONG);
     public static final BuilderCodec<EnergyTransfer> CODEC =
             BuilderCodec
-                    .builder(EnergyTransfer.class, EnergyTransfer::new, EnergyBase.CODEC)
+                    .builder(EnergyTransfer.class, EnergyTransfer::new, EnergyObject.CODEC)
                         .append(MAX_TRANSFER_RATE,
                                 (object, value) -> object.maxTransferRate = value,
                                 object -> object.maxTransferRate)

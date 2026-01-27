@@ -5,21 +5,22 @@ import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.component.Component;
 import com.hypixel.hytale.component.ComponentType;
+import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.wfee.enertalic.Enertalic;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class EnergyNode extends EnergyBase {
+public class EnergyNode extends EnergyObject {
+    public static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
 
     @Nonnull
-    /* Maybe switch to double later on*/
     public static final KeyedCodec<Long> CURRENT_ENERGY = new KeyedCodec<>("CurrentEnergy", Codec.LONG);
     public static final KeyedCodec<Long> MAX_ENERGY = new KeyedCodec<>("MaxEnergy", Codec.LONG);
     public static final BuilderCodec<EnergyNode> CODEC =
             BuilderCodec
-                    .builder(EnergyNode.class, EnergyNode::new, EnergyBase.CODEC)
+                    .builder(EnergyNode.class, EnergyNode::new, EnergyObject.CODEC)
                         .append(CURRENT_ENERGY,
                                 (object, value) -> object.currentEnergy = value,
                                 object -> object.currentEnergy)
@@ -43,34 +44,27 @@ public class EnergyNode extends EnergyBase {
         this.currentEnergy = value;
     }
 
-    public void addEnergy(long value)
-    {
-        this.currentEnergy += value;
-        if (this.currentEnergy > this.maxEnergy)
+    public void addEnergy(long value) {
+        if (getEnergyRemaining() < value)
         {
             this.currentEnergy = this.maxEnergy;
             throw new IllegalArgumentException();
         }
+
+        this.currentEnergy += value;
     }
 
-    public void removeEnergy(long value)
-    {
-        this.currentEnergy -= value;
-        if (this.currentEnergy < 0)
-        {
-            this.currentEnergy = 0;
-            throw new IllegalArgumentException();
+    public void removeEnergy(long value) {
+        if (currentEnergy < value) {
+            throw new IllegalArgumentException(String.format("Can not remove %d energy from %d stored", value, this.currentEnergy));
         }
+
+        this.currentEnergy -= value;
     }
 
     public long getMaxEnergy()
     {
         return maxEnergy;
-    }
-
-    public void setMaxEnergy(long value)
-    {
-        this.maxEnergy = value;
     }
 
     @Nonnull
@@ -88,5 +82,9 @@ public class EnergyNode extends EnergyBase {
         clone.currentEnergy = this.currentEnergy;
         clone.maxEnergy = this.maxEnergy;
         return clone;
+    }
+
+    public long getEnergyRemaining() {
+        return maxEnergy - currentEnergy;
     }
 }
