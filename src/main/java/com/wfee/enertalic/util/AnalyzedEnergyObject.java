@@ -6,8 +6,8 @@ import com.wfee.enertalic.components.EnergyObject;
 import java.util.Objects;
 
 public class AnalyzedEnergyObject {
-    EnergyObject energyObject;
-    Vector3i position;
+    private final EnergyObject energyObject;
+    private final Vector3i position;
 
     public AnalyzedEnergyObject(EnergyObject energyObject, Vector3i position) {
         this.energyObject = energyObject;

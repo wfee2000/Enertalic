@@ -11,6 +11,9 @@ import com.wfee.enertalic.Enertalic;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
 
 public class EnergyNode extends EnergyObject {
     public static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
@@ -33,15 +36,11 @@ public class EnergyNode extends EnergyObject {
 
     private long currentEnergy = 0L;
     private long maxEnergy = 0L;
+    private final List<Consumer<Long>> energyListeners = new ArrayList<>();
 
     public long getCurrentEnergy()
     {
         return currentEnergy;
-    }
-
-    public void setCurrentEnergy(long value)
-    {
-        this.currentEnergy = value;
     }
 
     public void addEnergy(long value) {
@@ -52,6 +51,7 @@ public class EnergyNode extends EnergyObject {
         }
 
         this.currentEnergy += value;
+        energyListeners.forEach(consumer -> consumer.accept(this.currentEnergy));
     }
 
     public void removeEnergy(long value) {
@@ -62,8 +62,7 @@ public class EnergyNode extends EnergyObject {
         this.currentEnergy -= value;
     }
 
-    public long getMaxEnergy()
-    {
+    public long getMaxEnergy() {
         return maxEnergy;
     }
 
@@ -86,5 +85,9 @@ public class EnergyNode extends EnergyObject {
 
     public long getEnergyRemaining() {
         return maxEnergy - currentEnergy;
+    }
+
+    public void onEnergyAdded(Consumer<Long> listener) {
+        energyListeners.add(listener);
     }
 }
