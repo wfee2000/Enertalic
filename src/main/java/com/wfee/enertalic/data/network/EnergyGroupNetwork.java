@@ -45,16 +45,16 @@ public class EnergyGroupNetwork {
     }
 
     private void traverseGroupFromNode(AnalyzedEnergyObject object, EnergyGroup group, Set<Vector3i> visitedPositions, @Nullable List<AnalyzedEnergyObject> currentEdge) {
-        if (!visitedPositions.add(object.getPosition())) {
+        if (!visitedPositions.add(object.position())) {
             return;
         }
 
-        if (object.getEnergyObject() instanceof EnergyNode && currentEdge != null && !currentEdge.isEmpty()) {
+        if (object.energyObject() instanceof EnergyNode && currentEdge != null && !currentEdge.isEmpty()) {
             List<AnalyzedEnergyObject> transfers = currentEdge.subList(1, currentEdge.size());
 
-            addSuperEdge(currentEdge.getFirst(), object, transfers, transfers
+            addEdge(currentEdge.getFirst(), object, transfers, transfers
                     .stream()
-                    .map(transfer -> ((EnergyTransfer)transfer.getEnergyObject()).getMaxTransferRate())
+                    .map(transfer -> ((EnergyTransfer)transfer.energyObject()).getMaxTransferRate())
                     .min(Long::compare)
                     .orElse(Long.MAX_VALUE)
             );
@@ -67,7 +67,7 @@ public class EnergyGroupNetwork {
         }
 
         for (AnalyzedEnergyObject next : getSurroundingObjects(object, group)) {
-            if (object.getEnergyObject() instanceof EnergyNode) {
+            if (object.energyObject() instanceof EnergyNode) {
                 currentEdge = new ArrayList<>() {{ add(object); }};
             }
 
@@ -79,17 +79,17 @@ public class EnergyGroupNetwork {
         List<AnalyzedEnergyObject> surroundingObjects = new ArrayList<>();
 
         for (Direction direction : Direction.values()) {
-            if (!object.getEnergyObject().getEnergySideConfig().getDirection(direction).canExport()) {
+            if (!object.energyObject().getEnergySideConfig().getDirection(direction).canExport()) {
                 continue;
             }
 
-            Vector3i searchPosition = object.getPosition().clone().add(direction.getOffset());
+            Vector3i searchPosition = object.position().clone().add(direction.getOffset());
 
             Consumer<Set<AnalyzedEnergyObject>> getMatchingObject = objects -> objects.stream()
-                    .filter(objectPosition -> objectPosition.getPosition().equals(searchPosition))
+                    .filter(objectPosition -> objectPosition.position().equals(searchPosition))
                     .filter(energyObject ->
                             energyObject
-                                    .getEnergyObject()
+                                    .energyObject()
                                     .getEnergySideConfig()
                                     .getDirection(direction.getOpposite())
                                     .canImport()
@@ -105,13 +105,13 @@ public class EnergyGroupNetwork {
     }
 
     private Edge addSuperEdge(AnalyzedEnergyObject source, AnalyzedEnergyObject destination) {
-        return addSuperEdge(source, destination, new ArrayList<>(), Long.MAX_VALUE);
+        return addEdge(source, destination, new ArrayList<>(), Long.MAX_VALUE);
     }
 
-    private Edge addSuperEdge(AnalyzedEnergyObject source,
-                              AnalyzedEnergyObject destination,
-                              List<AnalyzedEnergyObject> affects,
-                              long capacity) {
+    private Edge addEdge(AnalyzedEnergyObject source,
+                         AnalyzedEnergyObject destination,
+                         List<AnalyzedEnergyObject> affects,
+                         long capacity) {
         Edge edge = new Edge(source, destination, affects, capacity);
         Edge reverse = new Edge(destination, source, affects, 0);
         edge.setReverse(reverse);
@@ -131,10 +131,10 @@ public class EnergyGroupNetwork {
         boolean needsRebalancing = false;
 
         for (Edge edge : sourceEdges) {
-            long transfer = getTransferRate(dt, edge);
+            long transfer = (long)(edge.getUsed() * dt);
 
-            if (!(edge.getDestination().getEnergyObject() instanceof EnergyNode node)) {
-                throw new IllegalArgumentException(edge.getDestination().getEnergyObject().getClass().getName());
+            if (!(edge.getDestination().energyObject() instanceof EnergyNode node)) {
+                throw new IllegalArgumentException(edge.getDestination().energyObject().getClass().getName());
             }
 
             if (node.getCurrentEnergy() < transfer) {
@@ -144,10 +144,10 @@ public class EnergyGroupNetwork {
         }
 
         for (Edge edge : sinkEdges) {
-            long transfer = getTransferRate(dt, edge);
+            long transfer = (long)(edge.getUsed() * dt);
 
-            if (!(edge.getDestination().getEnergyObject() instanceof EnergyNode node)) {
-                throw new IllegalArgumentException(edge.getDestination().getEnergyObject().getClass().getName());
+            if (!(edge.getSource().energyObject() instanceof EnergyNode node)) {
+                throw new IllegalArgumentException(edge.getDestination().energyObject().getClass().getName());
             }
 
             if (node.getEnergyRemaining() < transfer) {
@@ -166,34 +166,24 @@ public class EnergyGroupNetwork {
         checkAndRebalance(dt);
 
         for (Edge edge : sourceEdges) {
-            long transfer = getTransferRate(dt, edge);
+            long transfer = (long)(edge.getUsed() * dt);
 
-            if (!(edge.getDestination().getEnergyObject() instanceof EnergyNode node)) {
-                throw new IllegalArgumentException(edge.getDestination().getEnergyObject().getClass().getName());
+            if (!(edge.getDestination().energyObject() instanceof EnergyNode node)) {
+                throw new IllegalArgumentException(edge.getDestination().energyObject().getClass().getName());
             }
 
             node.removeEnergy(transfer);
         }
 
         for (Edge edge : sinkEdges) {
-            long transfer = getTransferRate(dt, edge);
+            long transfer = (long)(edge.getUsed() * dt);
 
-            if (!(edge.getDestination().getEnergyObject() instanceof EnergyNode node)) {
-                throw new IllegalArgumentException(edge.getDestination().getEnergyObject().getClass().getName());
+            if (!(edge.getSource().energyObject() instanceof EnergyNode node)) {
+                throw new IllegalArgumentException(edge.getDestination().energyObject().getClass().getName());
             }
 
             node.addEnergy(transfer);
-            LOGGER.atInfo().log("Transferred %d Energy", transfer);
         }
-    }
-
-    private long getTransferRate(double dt, Edge edge) {
-        return (long)(network
-                .get(edge.getDestination())
-                .stream()
-                .filter(extremityEdge -> extremityEdge.getDestination() != edge.getSource())
-                .mapToLong(Edge::getUsed)
-                .sum() * dt);
     }
 
     public void calculate() {
@@ -205,8 +195,9 @@ public class EnergyGroupNetwork {
             for (PathPart pathPart : path) {
                 pathPart.edge().addUsed(flow);
                 pathPart.edge().getReverse().removeUsed(flow);
-                path = getPath(EnergyGroupNetwork.START, EnergyGroupNetwork.END, new ArrayList<>());
             }
+
+            path = getPath(EnergyGroupNetwork.START, EnergyGroupNetwork.END, new ArrayList<>());
         }
     }
 
@@ -240,5 +231,31 @@ public class EnergyGroupNetwork {
         }
 
         return null;
+    }
+
+    public void print() {
+        Set<AnalyzedEnergyObject> visitedNodes = new HashSet<>();
+
+        for (Edge edge : sourceEdges) {
+            LOGGER.atInfo().log("Source edge (used: %d / capacity: %d)", edge.getUsed(), edge.getCapacity());
+            printEdges(edge.getDestination(), visitedNodes);
+        }
+    }
+
+    private void printEdges(AnalyzedEnergyObject object, Set<AnalyzedEnergyObject> visitedNodes) {
+        if (!visitedNodes.add(object)) {
+            return;
+        }
+
+        List<Edge> edges = network.get(object);
+
+        for (Edge edge : edges) {
+            LOGGER.atInfo().log("Edge (used: %d / capacity: %d) connecting to %s",
+                    edge.getUsed(),
+                    edge.getCapacity(),
+                    edge.getDestination().position()
+            );
+            printEdges(edge.getDestination(), visitedNodes);
+        }
     }
 }

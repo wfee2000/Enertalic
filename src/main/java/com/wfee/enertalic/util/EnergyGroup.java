@@ -26,11 +26,11 @@ public final class EnergyGroup {
     }
 
     public boolean contains(Vector3i position) {
-        return getAllObjects().anyMatch(analyzedObject -> analyzedObject.getPosition().equals(position));
+        return getAllObjects().anyMatch(analyzedObject -> analyzedObject.position().equals(position));
     }
 
     public boolean contains(EnergyObject object) {
-        return getAllObjects().anyMatch(consumer -> consumer.getEnergyObject() == object);
+        return getAllObjects().anyMatch(consumer -> consumer.energyObject() == object);
     }
 
     private Stream<AnalyzedEnergyObject> getAllObjects() {
@@ -72,11 +72,11 @@ public final class EnergyGroup {
         this.network = network;
     }
 
-    public void remove(EnergyObject object) {
+    public boolean remove(EnergyObject object) {
         Predicate<AnalyzedEnergyObject> equalsObject =
-                analyzedObject -> analyzedObject.getEnergyObject() == object;
-        this.consumers.removeIf(equalsObject);
-        this.providers.removeIf(equalsObject);
-        this.transfers.removeIf(equalsObject);
+                analyzedObject -> analyzedObject.energyObject() == object;
+        return this.consumers.removeIf(equalsObject) ||
+                this.providers.removeIf(equalsObject) ||
+                this.transfers.removeIf(equalsObject);
     }
 }

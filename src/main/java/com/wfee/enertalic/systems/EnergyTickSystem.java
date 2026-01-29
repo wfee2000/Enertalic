@@ -4,14 +4,12 @@ import com.hypixel.hytale.component.*;
 import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
 import com.hypixel.hytale.logger.HytaleLogger;
-import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.wfee.enertalic.components.EnergyNode;
 import com.wfee.enertalic.data.network.NetworkService;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.*;
 
 public class EnergyTickSystem extends EntityTickingSystem<ChunkStore> {
 
@@ -31,13 +29,7 @@ public class EnergyTickSystem extends EntityTickingSystem<ChunkStore> {
             @Nonnull Store<ChunkStore> store,
             @Nonnull CommandBuffer<ChunkStore> commandBuffer
     ) {
-        BlockSection blocks = archetypeChunk.getComponent(index, BlockSection.getComponentType());
-
-        assert blocks != null;
-
-        if (blocks.getTickingBlocksCountCopy() != 0) {
-            NetworkService.getInstance().tick(dt);
-        }
+        NetworkService.getInstance().tick(dt);
     }
 
 

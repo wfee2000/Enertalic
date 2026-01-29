@@ -1,6 +1,7 @@
 package com.wfee.enertalic.data.network;
 
 import com.hypixel.hytale.component.Holder;
+import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
@@ -15,6 +16,7 @@ import com.wfee.enertalic.util.EnergyGroup;
 import java.util.*;
 
 public class NetworkService {
+    private final static HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
     private static NetworkService instance;
 
     private final List<EnergyGroupNetwork> networks;
@@ -38,7 +40,7 @@ public class NetworkService {
     }
 
     public void addNewObject(EnergyObject object, int x, int y, int z, World world) {
-        groups.add(analyzeGroup(object, x, y, z, world));
+        world.execute(() -> groups.add(analyzeGroup(object, x, y, z, world)));
     }
 
     public void removeObject(EnergyObject object) {
@@ -57,7 +59,10 @@ public class NetworkService {
             networks.remove(network);
         }
 
-        existingGroup.remove(object);
+        if (!existingGroup.remove(object)) {
+            throw new IllegalStateException("Object must be in a group");
+        }
+
         network = createNewNetwork(existingGroup);
         existingGroup.setNetwork(network);
         networks.add(network);
@@ -90,8 +95,12 @@ public class NetworkService {
         }
 
         EnergyGroupNetwork newNetwork = createNewNetwork(group);
-        group.setNetwork(newNetwork);
-        networks.add(newNetwork);
+
+        if (newNetwork != null) {
+            group.setNetwork(newNetwork);
+            networks.add(newNetwork);
+        }
+
         return group;
     }
 
