@@ -5,6 +5,7 @@ import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.RefSystem;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.util.ChunkUtil;
+import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.server.core.modules.block.BlockModule;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
@@ -62,7 +63,8 @@ public class EnergyObjectAddedSystem extends RefSystem<ChunkStore> {
                 x + worldChunk.getX() * 32,
                 y,
                 z + worldChunk.getZ() * 32,
-                worldChunk.getWorld()
+                worldChunk.getWorld(),
+                addReason
         );
     }
 
@@ -71,8 +73,23 @@ public class EnergyObjectAddedSystem extends RefSystem<ChunkStore> {
         BlockModule.BlockStateInfo info = commandBuffer.getComponent(ref, BlockModule.BlockStateInfo.getComponentType());
         if (info == null) return;
 
-        EnergyObject object = commandBuffer.getComponent(ref, EnergyNode.getComponentType());
-        NetworkService.getInstance().removeObject(object);
+        int x = ChunkUtil.xFromBlockInColumn(info.getIndex());
+        int y = ChunkUtil.yFromBlockInColumn(info.getIndex());
+        int z = ChunkUtil.zFromBlockInColumn(info.getIndex());
+
+        WorldChunk worldChunk = commandBuffer.getComponent(info.getChunkRef(), WorldChunk.getComponentType());
+
+        if (worldChunk == null) {
+            return;
+        }
+
+        NetworkService.getInstance().removeObject(
+                new Vector3i(
+                        x + worldChunk.getX() * 32,
+                        y,
+                        z + worldChunk.getZ() * 32
+                )
+        );
     }
 
 

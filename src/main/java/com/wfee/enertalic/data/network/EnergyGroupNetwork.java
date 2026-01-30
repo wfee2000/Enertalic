@@ -4,6 +4,7 @@ import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.wfee.enertalic.components.EnergyNode;
 import com.wfee.enertalic.components.EnergyTransfer;
+import com.wfee.enertalic.data.EnergyConfig;
 import com.wfee.enertalic.util.AnalyzedEnergyObject;
 import com.wfee.enertalic.util.Direction;
 import com.wfee.enertalic.util.EnergyGroup;
@@ -11,16 +12,17 @@ import com.wfee.enertalic.util.EnergyGroup;
 import javax.annotation.Nullable;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 public class EnergyGroupNetwork {
-    private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClassFull();
+    private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
 
     private final Map<AnalyzedEnergyObject, List<Edge>> network;
     private final Set<Edge> sourceEdges;
     private final Set<Edge> sinkEdges;
 
-    private static final AnalyzedEnergyObject START = new AnalyzedEnergyObject(new EnergyNode(), null);
-    private static final AnalyzedEnergyObject END = new AnalyzedEnergyObject(new EnergyNode(), null);
+    private static final AnalyzedEnergyObject START = new AnalyzedEnergyObject(new EnergyNode(), null, false);
+    private static final AnalyzedEnergyObject END = new AnalyzedEnergyObject(new EnergyNode(), null, true);
 
     public EnergyGroupNetwork(EnergyGroup group) {
         this.network = new HashMap<>();
@@ -33,9 +35,7 @@ public class EnergyGroupNetwork {
         for (AnalyzedEnergyObject source : group.getProviders())
         {
             sourceEdges.add(addSuperEdge(START, source));
-            Set<Vector3i> visitedPositions = new HashSet<>();
-
-            traverseGroupFromNode(source, group, visitedPositions, null);
+            traverseGroupFromNode(source, group, null);
         }
 
         for (AnalyzedEnergyObject destination : group.getConsumers())
@@ -44,48 +44,104 @@ public class EnergyGroupNetwork {
         }
     }
 
-    private void traverseGroupFromNode(AnalyzedEnergyObject object, EnergyGroup group, Set<Vector3i> visitedPositions, @Nullable List<AnalyzedEnergyObject> currentEdge) {
-        if (!visitedPositions.add(object.position())) {
-            return;
+    private void traverseGroupFromNode(AnalyzedEnergyObject object, EnergyGroup group, @Nullable List<AnalyzedEnergyObject> currentEdge) {
+        List<AnalyzedEnergyObject> surroundingAfter = new ArrayList<>();
+        long surrounding = getSurroundingObjects(object, group, surroundingAfter);
+
+        if (object.energyObject() instanceof EnergyNode) {
+            if (currentEdge != null && !currentEdge.isEmpty()) {
+                addEdge(currentEdge.getFirst(), object, currentEdge, getEdgeCapacity(currentEdge));
+
+                currentEdge = null;
+            }
+        } else if (object.energyObject() instanceof EnergyTransfer transfer) {
+            assert currentEdge != null;
+
+            if (surrounding > 2) {
+                addEdge(currentEdge.getFirst(), object, currentEdge, getEdgeCapacity(currentEdge));
+                AnalyzedEnergyObject clone = new AnalyzedEnergyObject(object.energyObject(), object.position(), true);
+
+                if (network.get(object).stream().noneMatch(edge -> edge.getDestination().equals(clone))) {
+                    addEdge(object,
+                            clone,
+                            List.of(object),
+                            transfer.getMaxTransferRate());
+                }
+
+                currentEdge = new ArrayList<>();
+                currentEdge.add(clone);
+                object = clone;
+            } else {
+                currentEdge.add(object);
+            }
         }
 
-        if (object.energyObject() instanceof EnergyNode && currentEdge != null && !currentEdge.isEmpty()) {
-            List<AnalyzedEnergyObject> transfers = currentEdge.subList(1, currentEdge.size());
+        AnalyzedEnergyObject source = object;
 
-            addEdge(currentEdge.getFirst(), object, transfers, transfers
+        for (AnalyzedEnergyObject next : surroundingAfter) {
+            if (network
+                    .entrySet()
                     .stream()
-                    .map(transfer -> ((EnergyTransfer)transfer.energyObject()).getMaxTransferRate())
-                    .min(Long::compare)
-                    .orElse(Long.MAX_VALUE)
-            );
-
-            currentEdge = null;
-        }
-
-        if (currentEdge != null) {
-            currentEdge.add(object);
-        }
-
-        for (AnalyzedEnergyObject next : getSurroundingObjects(object, group)) {
-            if (object.energyObject() instanceof EnergyNode) {
-                currentEdge = new ArrayList<>() {{ add(object); }};
+                    .anyMatch(entry ->
+                            entry.getKey().equals(source) &&
+                                    entry.getValue().stream().anyMatch(edge -> edge.getDestination().equals(next)) ||
+                            entry.getKey().equals(next) &&
+                                    entry.getValue().stream().anyMatch(edge -> edge.getDestination().equals(source))
+                    )
+            ) {
+                continue;
             }
 
-            traverseGroupFromNode(next, group, visitedPositions, currentEdge);
+            if (source.energyObject() instanceof EnergyNode) {
+                currentEdge = new ArrayList<>() {{ add(source); }};
+            }
+
+            if (currentEdge == null || currentEdge.stream().noneMatch(part -> part.position().equals(next.position()))) {
+                traverseGroupFromNode(next, group, currentEdge);
+            }
         }
     }
 
-    private List<AnalyzedEnergyObject> getSurroundingObjects(AnalyzedEnergyObject object, EnergyGroup group) {
-        List<AnalyzedEnergyObject> surroundingObjects = new ArrayList<>();
+    private long getEdgeCapacity(List<AnalyzedEnergyObject> constructingEdge) {
+        return constructingEdge
+                .stream()
+                .map(energyObject -> {
+                    if (energyObject.energyObject() instanceof EnergyNode) {
+                        return Long.MAX_VALUE;
+                    } else if (energyObject.energyObject() instanceof EnergyTransfer existingTransfer) {
+                        return existingTransfer.getMaxTransferRate();
+                    }
 
+                    throw new IllegalStateException("energy object is of non existing type");
+                })
+                .min(Long::compare)
+                .orElseThrow(() -> new IllegalStateException("edge needs to have an element"));
+    }
+
+    private long getSurroundingObjects(AnalyzedEnergyObject object, EnergyGroup group, List<AnalyzedEnergyObject> surroundingPassthroughObjects) {
+        long surrounding = 0;
         for (Direction direction : Direction.values()) {
-            if (!object.energyObject().getEnergySideConfig().getDirection(direction).canExport()) {
+            EnergyConfig config  = object.energyObject().getEnergySideConfig().getDirection(direction);
+
+            if (config == EnergyConfig.OFF) {
                 continue;
             }
 
             Vector3i searchPosition = object.position().clone().add(direction.getOffset());
 
-            Consumer<Set<AnalyzedEnergyObject>> getMatchingObject = objects -> objects.stream()
+            surrounding += Stream.concat(Stream.concat(
+                    group.getConsumers().stream(),
+                    group.getTransfers().stream()),
+                    group.getProviders().stream()
+            )
+                    .filter(objectPosition -> objectPosition.position().equals(searchPosition))
+                    .count();
+
+            if (!config.canExport()) {
+                continue;
+            }
+
+            Stream.concat(group.getConsumers().stream(), group.getTransfers().stream())
                     .filter(objectPosition -> objectPosition.position().equals(searchPosition))
                     .filter(energyObject ->
                             energyObject
@@ -95,13 +151,10 @@ public class EnergyGroupNetwork {
                                     .canImport()
                     )
                     .findAny()
-                    .ifPresent(surroundingObjects::add);
-
-            getMatchingObject.accept(group.getConsumers());
-            getMatchingObject.accept(group.getTransfers());
+                    .ifPresent(surroundingPassthroughObjects::add);
         }
 
-        return surroundingObjects;
+        return surrounding;
     }
 
     private Edge addSuperEdge(AnalyzedEnergyObject source, AnalyzedEnergyObject destination) {
@@ -130,6 +183,13 @@ public class EnergyGroupNetwork {
     private void checkAndRebalance(double dt) {
         boolean needsRebalancing = false;
 
+        Consumer<Edge> energyUpdate = (edge) -> {
+            LOGGER.atInfo().log("REBALANCING");
+            edge.setCapacity(Long.MAX_VALUE);
+            network.values().stream().flatMap(List::stream).forEach(networkEdge -> networkEdge.setUsed(0));
+            calculate();
+        };
+
         for (Edge edge : sourceEdges) {
             long transfer = (long)(edge.getUsed() * dt);
 
@@ -140,6 +200,7 @@ public class EnergyGroupNetwork {
             if (node.getCurrentEnergy() < transfer) {
                 needsRebalancing = true;
                 edge.setCapacity(Math.round(node.getCurrentEnergy() / dt));
+                node.onEnergyAdded(() -> energyUpdate.accept(edge));
             }
         }
 
@@ -153,10 +214,12 @@ public class EnergyGroupNetwork {
             if (node.getEnergyRemaining() < transfer) {
                 needsRebalancing = true;
                 edge.setCapacity(Math.round(node.getEnergyRemaining() / dt));
+                node.onEnergyRemoved(() ->  energyUpdate.accept(edge));
             }
         }
 
         if (needsRebalancing) {
+            LOGGER.atInfo().log("REBALANCING");
             network.values().stream().flatMap(List::stream).forEach(edge -> edge.setUsed(0));
             calculate();
         }
@@ -187,17 +250,26 @@ public class EnergyGroupNetwork {
     }
 
     public void calculate() {
-        List<PathPart> path = getPath(EnergyGroupNetwork.START, EnergyGroupNetwork.END, new ArrayList<>());
+        while (true) {
+            List<PathPart> path = getPath(
+                    EnergyGroupNetwork.START,
+                    EnergyGroupNetwork.END,
+                    new ArrayList<>(),
+                    new HashSet<>()
+            );
 
-        while (path != null) {
+            if (path == null) {
+                break;
+            }
+
+            path = path.reversed();
+
             long flow = getBottleneckFlow(path);
 
             for (PathPart pathPart : path) {
                 pathPart.edge().addUsed(flow);
                 pathPart.edge().getReverse().removeUsed(flow);
             }
-
-            path = getPath(EnergyGroupNetwork.START, EnergyGroupNetwork.END, new ArrayList<>());
         }
     }
 
@@ -209,7 +281,16 @@ public class EnergyGroupNetwork {
                 .orElse(Long.MAX_VALUE);
     }
 
-    private List<PathPart> getPath(AnalyzedEnergyObject start, AnalyzedEnergyObject end, List<PathPart> path) {
+    private List<PathPart> getPath(
+            AnalyzedEnergyObject start,
+            AnalyzedEnergyObject end,
+            List<PathPart> path,
+            Set<AnalyzedEnergyObject> visited
+    ) {
+        if (!visited.add(start)) {
+            return null;
+        }
+
         if (start == end) {
             return path;
         }
@@ -219,12 +300,11 @@ public class EnergyGroupNetwork {
 
             PathPart pathPart = new PathPart(edge, residualCapacity);
 
-            if (residualCapacity > 0 && !path.contains(pathPart)) {
-                path.add(pathPart);
-
-                List<PathPart> result = getPath(edge.getDestination(), end, path);
+            if (residualCapacity > 0) {
+                List<PathPart> result = getPath(edge.getDestination(), end, path, visited);
 
                 if (result != null) {
+                    path.add(pathPart);
                     return result;
                 }
             }
@@ -248,11 +328,17 @@ public class EnergyGroupNetwork {
         }
 
         List<Edge> edges = network.get(object);
+        LOGGER.atInfo().log("Connections: %d",  edges.size());
 
         for (Edge edge : edges) {
-            LOGGER.atInfo().log("Edge (used: %d / capacity: %d) connecting to %s",
+            if (edge.getCapacity() == 0L) {
+                continue;
+            }
+
+            LOGGER.atInfo().log("Edge (used: %d / capacity: %d) %s connecting to %s",
                     edge.getUsed(),
                     edge.getCapacity(),
+                    edge.getSource().position(),
                     edge.getDestination().position()
             );
             printEdges(edge.getDestination(), visitedNodes);

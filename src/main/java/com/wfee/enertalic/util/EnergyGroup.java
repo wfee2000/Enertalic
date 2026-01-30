@@ -4,10 +4,8 @@ import com.hypixel.hytale.math.vector.Vector3i;
 import com.wfee.enertalic.components.EnergyObject;
 import com.wfee.enertalic.data.network.EnergyGroupNetwork;
 
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 public final class EnergyGroup {
     private final Set<AnalyzedEnergyObject> consumers;
@@ -26,15 +24,25 @@ public final class EnergyGroup {
     }
 
     public boolean contains(Vector3i position) {
-        return getAllObjects().anyMatch(analyzedObject -> analyzedObject.position().equals(position));
+        return getAllObjects()
+                .stream()
+                .map(AnalyzedEnergyObject::position)
+                .anyMatch(analyzedObject -> analyzedObject.equals(position));
     }
 
     public boolean contains(EnergyObject object) {
-        return getAllObjects().anyMatch(consumer -> consumer.energyObject() == object);
+        return getAllObjects()
+                .stream()
+                .map(AnalyzedEnergyObject::energyObject)
+                .anyMatch(analyzedObject -> analyzedObject == object);
     }
 
-    private Stream<AnalyzedEnergyObject> getAllObjects() {
-        return Stream.concat(Stream.concat(consumers.stream(), providers.stream()),  transfers.stream());
+    public List<AnalyzedEnergyObject> getAllObjects() {
+        List<AnalyzedEnergyObject> union = new ArrayList<>();
+        union.addAll(transfers);
+        union.addAll(providers);
+        union.addAll(consumers);
+        return union;
     }
 
     public Set<AnalyzedEnergyObject> getConsumers() {
@@ -72,11 +80,91 @@ public final class EnergyGroup {
         this.network = network;
     }
 
+    private boolean removeMatching(Predicate<AnalyzedEnergyObject> predicate) {
+        return this.consumers.removeIf(predicate) ||
+                this.providers.removeIf(predicate) ||
+                this.transfers.removeIf(predicate);
+    }
+
     public boolean remove(EnergyObject object) {
         Predicate<AnalyzedEnergyObject> equalsObject =
                 analyzedObject -> analyzedObject.energyObject() == object;
-        return this.consumers.removeIf(equalsObject) ||
-                this.providers.removeIf(equalsObject) ||
-                this.transfers.removeIf(equalsObject);
+        return removeMatching(equalsObject);
+    }
+
+    public boolean remove(Vector3i position) {
+        Predicate<AnalyzedEnergyObject> equalsPosition =
+                analyzedObject -> analyzedObject.position().equals(position);
+        return removeMatching(equalsPosition);
+    }
+
+    public boolean isEmpty() {
+        return this.consumers.isEmpty() && this.providers.isEmpty() && this.transfers.isEmpty();
+    }
+
+    public List<EnergyGroup> checkConnections() {
+        if (isEmpty()) {
+            return null;
+        }
+
+        HashSet<AnalyzedEnergyObject> visited = new HashSet<>();
+        List<AnalyzedEnergyObject> objects = getAllObjects();
+
+        fillConnections(objects.getFirst(), visited);
+
+        if (visited.size() == objects.size()) {
+            return null;
+        }
+
+        List<EnergyGroup> groups = new ArrayList<>();
+
+        while (true) {
+            Set<AnalyzedEnergyObject> providers = new HashSet<>();
+            Set<AnalyzedEnergyObject> transfers = new HashSet<>();
+            Set<AnalyzedEnergyObject> consumers = new HashSet<>();
+
+            for (AnalyzedEnergyObject object : visited) {
+                if (this.providers.contains(object)) {
+                    providers.add(object);
+                }
+
+                if (this.transfers.contains(object)) {
+                    transfers.add(object);
+                }
+
+                if (this.consumers.contains(object)) {
+                    consumers.add(object);
+                }
+
+                objects.remove(object);
+            }
+
+            groups.add(new EnergyGroup(consumers, providers, transfers));
+            visited.clear();
+
+            if (objects.isEmpty()) {
+                break;
+            }
+
+            fillConnections(objects.getFirst(), visited);
+        }
+
+        return groups;
+    }
+
+    private void fillConnections(AnalyzedEnergyObject start, Set<AnalyzedEnergyObject> visited) {
+        if (!visited.add(start)) {
+            return;
+        }
+
+        for (Direction direction : Direction.values()) {
+            Vector3i newPosition = Vector3i.add(direction.getOffset(), start.position());
+
+            getAllObjects()
+                    .stream()
+                    .filter(object -> object.position().equals(newPosition))
+                    .findAny()
+                    .ifPresent(object -> fillConnections(object, visited));
+        }
     }
 }

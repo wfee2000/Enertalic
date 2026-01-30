@@ -1,5 +1,6 @@
 package com.wfee.enertalic.data.network;
 
+import com.hypixel.hytale.component.AddReason;
 import com.hypixel.hytale.component.Holder;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.vector.Vector3i;
@@ -39,33 +40,79 @@ public class NetworkService {
         networks.forEach(network -> network.computeNetwork(dt));
     }
 
-    public void addNewObject(EnergyObject object, int x, int y, int z, World world) {
-        world.execute(() -> groups.add(analyzeGroup(object, x, y, z, world)));
+    public void addNewObject(EnergyObject object, int x, int y, int z, World world, AddReason addReason) {
+        // TODO: check merging multiple groups when adding block
+        world.execute(() -> {
+            if (addReason == AddReason.LOAD && groups
+                    .stream()
+                    .anyMatch(group -> group.contains(new Vector3i(x,y,z)))) {
+                return;
+            }
+
+            groups.add(analyzeGroup(object, x, y, z, world));
+            LOGGER.atInfo().log("Groups: %d | Networks: %d", groups.size(), networks.size());
+        });
     }
 
-    public void removeObject(EnergyObject object) {
+    public void removeObject(Vector3i position) {
         EnergyGroup existingGroup = groups.stream()
-                .filter(group -> group.contains(object))
+                .filter(group -> group.contains(position))
                 .findAny()
-                .orElse(null);
+                .orElseThrow(() -> new IllegalStateException("Object must be in a group"));
 
-        if (existingGroup == null) {
+        if (!existingGroup.remove(position)) {
+            throw new IllegalStateException("Object must be in a group");
+        }
+
+        List<EnergyGroup> newGroups = existingGroup.checkConnections();
+
+        if (newGroups != null) {
+            groups.remove(existingGroup);
+
+            EnergyGroupNetwork network = existingGroup.getNetwork();
+
+            if (network != null) {
+                networks.remove(network);
+            }
+
+            for (EnergyGroup group : newGroups) {
+                groups.add(group);
+
+                if (existingGroup.getNetwork() != null) {
+                    networks.remove(existingGroup.getNetwork());
+
+                    network = createNewNetwork(existingGroup);
+                    existingGroup.setNetwork(network);
+
+                    if (network != null) {
+                        networks.add(network);
+                    }
+                }
+            }
+
             return;
+        }
+
+        if (existingGroup.isEmpty()) {
+            groups.remove(existingGroup);
         }
 
         EnergyGroupNetwork network = existingGroup.getNetwork();
 
         if (network != null) {
-            networks.remove(network);
+            if (!networks.remove(network)) {
+                throw new IllegalStateException("Object must be in a Network");
+            }
+
+            network = createNewNetwork(existingGroup);
+            existingGroup.setNetwork(network);
+
+            if (network != null) {
+                networks.add(network);
+            }
         }
 
-        if (!existingGroup.remove(object)) {
-            throw new IllegalStateException("Object must be in a group");
-        }
-
-        network = createNewNetwork(existingGroup);
-        existingGroup.setNetwork(network);
-        networks.add(network);
+        LOGGER.atInfo().log("Groups: %d | Networks: %d", groups.size(), networks.size());
     }
 
     private EnergyGroupNetwork createNewNetwork(EnergyGroup group) {
@@ -91,24 +138,21 @@ public class NetworkService {
         EnergyGroup existingGroup = analyzeSides(start, position, world, seenPositions, group);
 
         if (existingGroup != null) {
+            groups.remove(existingGroup);
             networks.remove(existingGroup.getNetwork());
         }
 
         EnergyGroupNetwork newNetwork = createNewNetwork(group);
+        group.setNetwork(newNetwork);
 
         if (newNetwork != null) {
-            group.setNetwork(newNetwork);
             networks.add(newNetwork);
         }
 
         return group;
     }
 
-    public void addToGroup(
-            Vector3i position,
-            World world,
-            EnergyGroup group
-    ) {
+    private void addToGroup(Vector3i position, World world, EnergyGroup group) {
         Holder<ChunkStore> holder = world.getBlockComponentHolder(position.x, position.y, position.z);
 
         if (holder == null) {
@@ -122,9 +166,9 @@ public class NetworkService {
                 EnergyConfig config = node.getEnergySideConfig().getDirection(direction);
 
                 if (config.canExport()) {
-                    group.getProviders().add(new AnalyzedEnergyObject(node, position));
+                    group.getProviders().add(new AnalyzedEnergyObject(node, position, false));
                 } else if (config.canImport()) {
-                    group.getConsumers().add(new AnalyzedEnergyObject(node, position));
+                    group.getConsumers().add(new AnalyzedEnergyObject(node, position, false));
                 }
             }
         }
@@ -132,11 +176,11 @@ public class NetworkService {
         EnergyTransfer transfer = holder.getComponent(EnergyTransfer.getComponentType());
 
         if (transfer != null) {
-            group.getTransfers().add(new AnalyzedEnergyObject(transfer, position));
+            group.getTransfers().add(new AnalyzedEnergyObject(transfer, position, false));
         }
     }
 
-    public EnergyGroup analyzeSides(
+    private EnergyGroup analyzeSides(
             EnergyObject last,
             Vector3i position,
             World world,

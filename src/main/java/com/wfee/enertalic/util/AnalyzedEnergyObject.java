@@ -5,11 +5,13 @@ import com.wfee.enertalic.components.EnergyObject;
 
 import java.util.Objects;
 
-public record AnalyzedEnergyObject(EnergyObject energyObject, Vector3i position) {
+public record AnalyzedEnergyObject(EnergyObject energyObject, Vector3i position, boolean isExtension) {
 
     @Override
     public boolean equals(Object o) {
-        return o instanceof AnalyzedEnergyObject(EnergyObject object, Vector3i position1) &&
-                Objects.equals(position, position1) && energyObject == object;
+        return o instanceof AnalyzedEnergyObject(EnergyObject object, Vector3i position1, boolean isExtension1) &&
+                Objects.equals(position, position1) &&
+                energyObject == object &&
+                isExtension == isExtension1;
     }
 }

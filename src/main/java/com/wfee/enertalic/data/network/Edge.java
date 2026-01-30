@@ -71,4 +71,14 @@ public final class Edge {
     public void removeUsed(long flow) {
         this.used -= flow;
     }
+
+    @Override
+    public String toString() {
+        return "Edge{" +
+                "source=" + source.toString() +
+                ", destination=" + destination.toString() +
+                ", capacity=" + capacity +
+                ", used=" + used +
+                '}';
+    }
 }

@@ -13,7 +13,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 
 public class EnergyNode extends EnergyObject {
     public static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
@@ -36,7 +35,8 @@ public class EnergyNode extends EnergyObject {
 
     private long currentEnergy = 0L;
     private long maxEnergy = 0L;
-    private final List<Consumer<Long>> energyListeners = new ArrayList<>();
+    private final List<Runnable> energyAddListeners = new ArrayList<>();
+    private final List<Runnable> energyRemoveListeners = new ArrayList<>();
 
     public long getCurrentEnergy()
     {
@@ -51,7 +51,8 @@ public class EnergyNode extends EnergyObject {
         }
 
         this.currentEnergy += value;
-        energyListeners.forEach(consumer -> consumer.accept(this.currentEnergy));
+        energyAddListeners.forEach(Runnable::run);
+        energyAddListeners.clear();
     }
 
     public void removeEnergy(long value) {
@@ -60,6 +61,8 @@ public class EnergyNode extends EnergyObject {
         }
 
         this.currentEnergy -= value;
+        energyRemoveListeners.forEach(Runnable::run);
+        energyRemoveListeners.clear();
     }
 
     public long getMaxEnergy() {
@@ -87,7 +90,11 @@ public class EnergyNode extends EnergyObject {
         return maxEnergy - currentEnergy;
     }
 
-    public void onEnergyAdded(Consumer<Long> listener) {
-        energyListeners.add(listener);
+    public void onEnergyAdded(Runnable listener) {
+        energyAddListeners.add(listener);
+    }
+
+    public void onEnergyRemoved(Runnable  listener) {
+        energyRemoveListeners.add(listener);
     }
 }
