@@ -6,7 +6,7 @@ import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.wfee.enertalic.components.EnergyNode;
-import com.wfee.enertalic.data.network.NetworkService;
+import com.wfee.enertalic.data.network.EnergyService;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -29,7 +29,7 @@ public class EnergyTickSystem extends EntityTickingSystem<ChunkStore> {
             @Nonnull Store<ChunkStore> store,
             @Nonnull CommandBuffer<ChunkStore> commandBuffer
     ) {
-        NetworkService.getInstance().tick(dt);
+        EnergyService.getInstance().tick(dt);
     }
 
 

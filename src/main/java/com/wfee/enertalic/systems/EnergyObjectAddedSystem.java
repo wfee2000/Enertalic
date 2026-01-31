@@ -12,7 +12,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.wfee.enertalic.components.EnergyNode;
 import com.wfee.enertalic.components.EnergyObject;
 import com.wfee.enertalic.components.EnergyTransfer;
-import com.wfee.enertalic.data.network.NetworkService;
+import com.wfee.enertalic.data.network.EnergyService;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -58,7 +58,7 @@ public class EnergyObjectAddedSystem extends RefSystem<ChunkStore> {
 
         worldChunk.setTicking(x, y, z, true);
 
-        NetworkService.getInstance().addNewObject(
+        EnergyService.getInstance().addNewObject(
                 object,
                 x + worldChunk.getX() * 32,
                 y,
@@ -83,7 +83,7 @@ public class EnergyObjectAddedSystem extends RefSystem<ChunkStore> {
             return;
         }
 
-        NetworkService.getInstance().removeObject(
+        EnergyService.getInstance().removeObject(
                 new Vector3i(
                         x + worldChunk.getX() * 32,
                         y,

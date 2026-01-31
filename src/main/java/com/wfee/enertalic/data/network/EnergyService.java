@@ -16,21 +16,21 @@ import com.wfee.enertalic.util.EnergyGroup;
 
 import java.util.*;
 
-public class NetworkService {
+public class EnergyService {
     private final static HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
-    private static NetworkService instance;
+    private static EnergyService instance;
 
     private final List<EnergyGroupNetwork> networks;
     private final List<EnergyGroup> groups;
 
-    private NetworkService() {
+    private EnergyService() {
         this.networks = new ArrayList<>();
         this.groups = new ArrayList<>();
     }
 
-    public static NetworkService getInstance() {
+    public static EnergyService getInstance() {
         if (instance == null) {
-            instance = new NetworkService();
+            instance = new EnergyService();
         }
 
         return instance;
@@ -64,50 +64,38 @@ public class NetworkService {
 
         List<EnergyGroup> newGroups = existingGroup.checkConnections();
 
-        if (newGroups != null) {
-            groups.remove(existingGroup);
-
-            EnergyGroupNetwork network = existingGroup.getNetwork();
-
-            if (network != null) {
-                networks.remove(network);
-            }
-
-            for (EnergyGroup group : newGroups) {
-                groups.add(group);
-
-                if (existingGroup.getNetwork() != null) {
-                    networks.remove(existingGroup.getNetwork());
-
-                    network = createNewNetwork(group);
-                    existingGroup.setNetwork(network);
-
-                    if (network != null) {
-                        networks.add(network);
-                    }
-                }
-            }
-
-            return;
-        }
-
-        if (existingGroup.isEmpty()) {
+        if (existingGroup.isEmpty() || newGroups != null) {
             groups.remove(existingGroup);
         }
 
         EnergyGroupNetwork network = existingGroup.getNetwork();
+        boolean hasNetwork = network != null;
 
-        if (network != null) {
+        if (newGroups != null) {
+            groups.addAll(newGroups);
+        }
+
+        if (hasNetwork) {
             if (!networks.remove(network)) {
                 throw new IllegalStateException("Object must be in a Network");
             }
 
-            network = createNewNetwork(existingGroup);
-            existingGroup.setNetwork(network);
-
-            if (network != null) {
-                networks.add(network);
+            if (newGroups == null) {
+                createAndSetNewNetwork(existingGroup);
+            } else {
+                for (EnergyGroup group : newGroups) {
+                    createAndSetNewNetwork(group);
+                }
             }
+        }
+    }
+
+    private void createAndSetNewNetwork(EnergyGroup group) {
+        EnergyGroupNetwork network = createNewNetwork(group);
+        group.setNetwork(network);
+
+        if (network != null) {
+            networks.add(network);
         }
     }
 
@@ -136,20 +124,11 @@ public class NetworkService {
         if (!existingGroups.isEmpty()) {
             existingGroups.forEach(existingGroup -> {
                 groups.remove(existingGroup);
-
-                if (existingGroup.getNetwork() != null) {
-                    networks.remove(existingGroup.getNetwork());
-                }
+                networks.remove(existingGroup.getNetwork());
             });
         }
 
-        EnergyGroupNetwork newNetwork = createNewNetwork(group);
-        group.setNetwork(newNetwork);
-
-        if (newNetwork != null) {
-            networks.add(newNetwork);
-        }
-
+        createAndSetNewNetwork(group);
         return group;
     }
 
