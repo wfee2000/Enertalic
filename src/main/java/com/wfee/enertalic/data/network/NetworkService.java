@@ -41,7 +41,6 @@ public class NetworkService {
     }
 
     public void addNewObject(EnergyObject object, int x, int y, int z, World world, AddReason addReason) {
-        // TODO: check merging multiple groups when adding block
         world.execute(() -> {
             if (addReason == AddReason.LOAD && groups
                     .stream()
@@ -50,7 +49,6 @@ public class NetworkService {
             }
 
             groups.add(analyzeGroup(object, x, y, z, world));
-            LOGGER.atInfo().log("Groups: %d | Networks: %d", groups.size(), networks.size());
         });
     }
 
@@ -81,7 +79,7 @@ public class NetworkService {
                 if (existingGroup.getNetwork() != null) {
                     networks.remove(existingGroup.getNetwork());
 
-                    network = createNewNetwork(existingGroup);
+                    network = createNewNetwork(group);
                     existingGroup.setNetwork(network);
 
                     if (network != null) {
@@ -111,8 +109,6 @@ public class NetworkService {
                 networks.add(network);
             }
         }
-
-        LOGGER.atInfo().log("Groups: %d | Networks: %d", groups.size(), networks.size());
     }
 
     private EnergyGroupNetwork createNewNetwork(EnergyGroup group) {
@@ -135,11 +131,16 @@ public class NetworkService {
         };
 
         addToGroup(position, world, group);
-        EnergyGroup existingGroup = analyzeSides(start, position, world, seenPositions, group);
+        List<EnergyGroup> existingGroups = analyzeSides(start, position, world, seenPositions, group);
 
-        if (existingGroup != null) {
-            groups.remove(existingGroup);
-            networks.remove(existingGroup.getNetwork());
+        if (!existingGroups.isEmpty()) {
+            existingGroups.forEach(existingGroup -> {
+                groups.remove(existingGroup);
+
+                if (existingGroup.getNetwork() != null) {
+                    networks.remove(existingGroup.getNetwork());
+                }
+            });
         }
 
         EnergyGroupNetwork newNetwork = createNewNetwork(group);
@@ -180,34 +181,34 @@ public class NetworkService {
         }
     }
 
-    private EnergyGroup analyzeSides(
+    private List<EnergyGroup> analyzeSides(
             EnergyObject last,
             Vector3i position,
             World world,
             Set<Vector3i> seenPositions,
             EnergyGroup group
     ) {
-        EnergyGroup existingGroup = null;
+        List<EnergyGroup> existingGroups = new ArrayList<>();
 
         for (Direction direction : Direction.values()) {
             if (last.getEnergySideConfig().getDirection(direction) != EnergyConfig.OFF) {
-                EnergyGroup analyzedGroup = analyzePosition(
+                List<EnergyGroup> analyzedGroups = analyzePosition(
                         position.clone().add(direction.getOffset()),
                         world,
                         seenPositions,
                         group
                 );
 
-                if (analyzedGroup != null) {
-                    existingGroup = analyzedGroup;
+                if (analyzedGroups != null) {
+                    existingGroups.addAll(analyzedGroups);
                 }
             }
         }
 
-        return existingGroup;
+        return existingGroups;
     }
 
-    private EnergyGroup analyzePosition(
+    private List<EnergyGroup> analyzePosition(
             Vector3i position,
             World world,
             Set<Vector3i> seenPositions,
@@ -234,17 +235,15 @@ public class NetworkService {
         }
 
         addToGroup(position, world, group);
-        EnergyGroup oldGroup = analyzeSides(object, position, world, seenPositions, group);
+        List<EnergyGroup> oldGroups = analyzeSides(object, position, world, seenPositions, group);
 
-        if (oldGroup != null) {
-            return oldGroup;
+        if (!oldGroups.isEmpty()) {
+            return oldGroups;
         }
 
-        Optional<EnergyGroup> existingGroup = groups
+        return groups
                 .stream()
                 .filter(savedGroup -> savedGroup.contains(position))
-                .findAny();
-
-        return existingGroup.orElse(null);
+                .toList();
     }
 }

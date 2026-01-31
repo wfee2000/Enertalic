@@ -184,7 +184,6 @@ public class EnergyGroupNetwork {
         boolean needsRebalancing = false;
 
         Consumer<Edge> energyUpdate = (edge) -> {
-            LOGGER.atInfo().log("REBALANCING");
             edge.setCapacity(Long.MAX_VALUE);
             network.values().stream().flatMap(List::stream).forEach(networkEdge -> networkEdge.setUsed(0));
             calculate();
@@ -219,7 +218,6 @@ public class EnergyGroupNetwork {
         }
 
         if (needsRebalancing) {
-            LOGGER.atInfo().log("REBALANCING");
             network.values().stream().flatMap(List::stream).forEach(edge -> edge.setUsed(0));
             calculate();
         }
