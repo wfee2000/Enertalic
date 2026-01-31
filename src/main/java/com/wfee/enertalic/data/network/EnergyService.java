@@ -13,6 +13,7 @@ import com.wfee.enertalic.data.EnergyConfig;
 import com.wfee.enertalic.util.AnalyzedEnergyObject;
 import com.wfee.enertalic.util.Direction;
 import com.wfee.enertalic.util.EnergyGroup;
+import com.wfee.enertalic.util.Pair;
 
 import java.util.*;
 
@@ -40,7 +41,7 @@ public class EnergyService {
         networks.forEach(network -> network.computeNetwork(dt));
     }
 
-    public void addNewObject(EnergyObject object, int x, int y, int z, World world, AddReason addReason) {
+    public void addNewObject(int x, int y, int z, World world, AddReason addReason) {
         world.execute(() -> {
             if (addReason == AddReason.LOAD && groups
                     .stream()
@@ -48,27 +49,28 @@ public class EnergyService {
                 return;
             }
 
-            groups.add(analyzeGroup(object, x, y, z, world));
+            groups.add(analyzeGroup(x, y, z, world));
         });
     }
 
     public void removeObject(Vector3i position) {
-        EnergyGroup existingGroup = groups.stream()
-                .filter(group -> group.contains(position))
+        Pair<EnergyGroup, AnalyzedEnergyObject> existing = groups.stream()
+                .map(group -> new Pair<>(group, group.getObjectForPosition(position)))
+                .filter(pair -> pair.item2() != null)
                 .findAny()
                 .orElseThrow(() -> new IllegalStateException("Object must be in a group"));
 
-        if (!existingGroup.remove(position)) {
+        if (!existing.item1().remove(existing.item2())) {
             throw new IllegalStateException("Object must be in a group");
         }
 
-        List<EnergyGroup> newGroups = existingGroup.checkConnections();
+        List<EnergyGroup> newGroups = existing.item1().checkConnections();
 
-        if (existingGroup.isEmpty() || newGroups != null) {
-            groups.remove(existingGroup);
+        if (existing.item1().isEmpty() || newGroups != null) {
+            groups.remove(existing.item1());
         }
 
-        EnergyGroupNetwork network = existingGroup.getNetwork();
+        EnergyGroupNetwork network = existing.item1().getNetwork();
         boolean hasNetwork = network != null;
 
         if (newGroups != null) {
@@ -81,7 +83,7 @@ public class EnergyService {
             }
 
             if (newGroups == null) {
-                createAndSetNewNetwork(existingGroup);
+                createAndSetNewNetwork(existing.item1());
             } else {
                 for (EnergyGroup group : newGroups) {
                     createAndSetNewNetwork(group);
@@ -109,17 +111,12 @@ public class EnergyService {
         return network;
     }
 
-    private EnergyGroup analyzeGroup(EnergyObject start, int x, int y, int z, World world) {
+    private EnergyGroup analyzeGroup(int x, int y, int z, World world) {
         Vector3i position = new Vector3i(x, y, z);
-        EnergyGroup group = new EnergyGroup(new HashSet<>(), new HashSet<>(), new HashSet<>());
-        Set<Vector3i> seenPositions = new HashSet<>() {
-            {
-                add(position);
-            }
-        };
+        EnergyGroup group = new EnergyGroup(new HashSet<>(), new HashSet<>(), new HashSet<>(), new HashMap<>());
 
-        addToGroup(position, world, group);
-        List<EnergyGroup> existingGroups = analyzeSides(start, position, world, seenPositions, group);
+        List<EnergyGroup> existingGroups = new ArrayList<>();
+        analyzePosition(position, world, new HashSet<>(), group, existingGroups);
 
         if (!existingGroups.isEmpty()) {
             existingGroups.forEach(existingGroup -> {
@@ -132,53 +129,69 @@ public class EnergyService {
         return group;
     }
 
-    private void addToGroup(Vector3i position, World world, EnergyGroup group) {
+    private AnalyzedEnergyObject addToGroup(Vector3i position, World world, EnergyGroup group) {
         Holder<ChunkStore> holder = world.getBlockComponentHolder(position.x, position.y, position.z);
+        AnalyzedEnergyObject object = null;
 
         if (holder == null) {
-            return;
+            return null;
         }
 
         EnergyNode node = holder.getComponent(EnergyNode.getComponentType());
 
         if (node != null) {
+            object = new AnalyzedEnergyObject(node, position, false);
+
             for (Direction direction : Direction.values()) {
                 EnergyConfig config = node.getEnergySideConfig().getDirection(direction);
 
                 if (config.canExport()) {
-                    group.getProviders().add(new AnalyzedEnergyObject(node, position, false));
+                    group.getProviders().add(object);
                 } else if (config.canImport()) {
-                    group.getConsumers().add(new AnalyzedEnergyObject(node, position, false));
+                    group.getConsumers().add(object);
                 }
             }
+
+            group.getSurroundingBlocks().putIfAbsent(object, new ArrayList<>());
         }
 
         EnergyTransfer transfer = holder.getComponent(EnergyTransfer.getComponentType());
 
         if (transfer != null) {
-            group.getTransfers().add(new AnalyzedEnergyObject(transfer, position, false));
+            object = new AnalyzedEnergyObject(transfer, position, false);
+            group.getTransfers().add(object);
+            group.getSurroundingBlocks().putIfAbsent(object, new ArrayList<>());
         }
+
+        return object;
     }
 
     private List<EnergyGroup> analyzeSides(
-            EnergyObject last,
+            AnalyzedEnergyObject last,
             Vector3i position,
             World world,
-            Set<Vector3i> seenPositions,
+            Set<AnalyzedEnergyObject> visited,
             EnergyGroup group
     ) {
         List<EnergyGroup> existingGroups = new ArrayList<>();
 
         for (Direction direction : Direction.values()) {
-            if (last.getEnergySideConfig().getDirection(direction) != EnergyConfig.OFF) {
-                List<EnergyGroup> analyzedGroups = analyzePosition(
+            if (last.energyObject().getEnergySideConfig().getDirection(direction) != EnergyConfig.OFF) {
+                List<EnergyGroup> analyzedGroups = new ArrayList<>();
+
+                AnalyzedEnergyObject object = analyzePosition(
                         position.clone().add(direction.getOffset()),
                         world,
-                        seenPositions,
-                        group
+                        visited,
+                        group,
+                        analyzedGroups
                 );
 
-                if (analyzedGroups != null) {
+                if (object != null) {
+                    group.getSurroundingBlocks().get(last).add(new Pair<>(direction, object));
+                }
+
+                if (!analyzedGroups.isEmpty()) {
                     existingGroups.addAll(analyzedGroups);
                 }
             }
@@ -187,14 +200,20 @@ public class EnergyService {
         return existingGroups;
     }
 
-    private List<EnergyGroup> analyzePosition(
+    private AnalyzedEnergyObject analyzePosition(
             Vector3i position,
             World world,
-            Set<Vector3i> seenPositions,
-            EnergyGroup group
+            Set<AnalyzedEnergyObject> visited,
+            EnergyGroup group,
+            List<EnergyGroup> groups
     ) {
-        if (!seenPositions.add(position)) {
-            return null;
+        Optional<AnalyzedEnergyObject> analyzedObject = visited
+                .stream()
+                .filter(object -> object.position().equals(position))
+                .findAny();
+
+        if (analyzedObject.isPresent()) {
+            return analyzedObject.get();
         }
 
         Holder<ChunkStore> holder = world.getBlockComponentHolder(position.x, position.y, position.z);
@@ -213,16 +232,20 @@ public class EnergyService {
             return null;
         }
 
-        addToGroup(position, world, group);
-        List<EnergyGroup> oldGroups = analyzeSides(object, position, world, seenPositions, group);
+        AnalyzedEnergyObject analyzedEnergyObject = addToGroup(position, world, group);
+        visited.add(analyzedEnergyObject);
+        List<EnergyGroup> oldGroups = analyzeSides(analyzedEnergyObject, position, world, visited, group);
 
         if (!oldGroups.isEmpty()) {
-            return oldGroups;
+            groups.addAll(oldGroups);
+        } else {
+            groups.addAll(this.groups
+                    .stream()
+                    .filter(savedGroup -> savedGroup.contains(position))
+                    .toList()
+            );
         }
 
-        return groups
-                .stream()
-                .filter(savedGroup -> savedGroup.contains(position))
-                .toList();
+        return analyzedEnergyObject;
     }
 }

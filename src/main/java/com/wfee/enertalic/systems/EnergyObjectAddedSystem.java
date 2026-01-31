@@ -59,7 +59,6 @@ public class EnergyObjectAddedSystem extends RefSystem<ChunkStore> {
         worldChunk.setTicking(x, y, z, true);
 
         EnergyService.getInstance().addNewObject(
-                object,
                 x + worldChunk.getX() * 32,
                 y,
                 z + worldChunk.getZ() * 32,

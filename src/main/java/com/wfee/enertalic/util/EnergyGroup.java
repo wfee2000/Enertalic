@@ -1,5 +1,6 @@
 package com.wfee.enertalic.util;
 
+import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.wfee.enertalic.components.EnergyObject;
 import com.wfee.enertalic.data.network.EnergyGroupNetwork;
@@ -8,19 +9,24 @@ import java.util.*;
 import java.util.function.Predicate;
 
 public final class EnergyGroup {
+    private final static HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
+
     private final Set<AnalyzedEnergyObject> consumers;
     private final Set<AnalyzedEnergyObject> providers;
     private final Set<AnalyzedEnergyObject> transfers;
+    private final Map<AnalyzedEnergyObject, List<Pair<Direction, AnalyzedEnergyObject>>> surroundingBlocks;
     private EnergyGroupNetwork network;
 
     public EnergyGroup(
             Set<AnalyzedEnergyObject> consumers,
             Set<AnalyzedEnergyObject> providers,
-            Set<AnalyzedEnergyObject> transfers
+            Set<AnalyzedEnergyObject> transfers,
+            HashMap<AnalyzedEnergyObject, List<Pair<Direction, AnalyzedEnergyObject>>> surroundingBlocks
     ) {
         this.consumers = consumers;
         this.providers = providers;
         this.transfers = transfers;
+        this.surroundingBlocks = surroundingBlocks;
     }
 
     public boolean contains(Vector3i position) {
@@ -30,11 +36,24 @@ public final class EnergyGroup {
                 .anyMatch(analyzedObject -> analyzedObject.equals(position));
     }
 
+    public AnalyzedEnergyObject getObjectForPosition(Vector3i position) {
+        return surroundingBlocks
+                .keySet()
+                .stream()
+                .filter(object -> object.position().equals(position))
+                .findAny()
+                .orElse(null);
+    }
+
     public boolean contains(EnergyObject object) {
         return getAllObjects()
                 .stream()
                 .map(AnalyzedEnergyObject::energyObject)
                 .anyMatch(analyzedObject -> analyzedObject == object);
+    }
+
+    public Map<AnalyzedEnergyObject, List<Pair<Direction, AnalyzedEnergyObject>>> getSurroundingBlocks() {
+        return surroundingBlocks;
     }
 
     public List<AnalyzedEnergyObject> getAllObjects() {
@@ -86,16 +105,17 @@ public final class EnergyGroup {
                 this.transfers.removeIf(predicate);
     }
 
-    public boolean remove(EnergyObject object) {
-        Predicate<AnalyzedEnergyObject> equalsObject =
-                analyzedObject -> analyzedObject.energyObject() == object;
-        return removeMatching(equalsObject);
-    }
+    public boolean remove(AnalyzedEnergyObject object) {
+        boolean wasRemoved = removeMatching(object1 -> object1.equals(object));
 
-    public boolean remove(Vector3i position) {
-        Predicate<AnalyzedEnergyObject> equalsPosition =
-                analyzedObject -> analyzedObject.position().equals(position);
-        return removeMatching(equalsPosition);
+        surroundingBlocks.remove(object);
+        surroundingBlocks
+                .values()
+                .forEach(blocks ->
+                        blocks.removeIf(pair -> pair.item2().equals(object))
+                );
+
+        return wasRemoved;
     }
 
     public boolean isEmpty() {
@@ -122,6 +142,7 @@ public final class EnergyGroup {
             Set<AnalyzedEnergyObject> providers = new HashSet<>();
             Set<AnalyzedEnergyObject> transfers = new HashSet<>();
             Set<AnalyzedEnergyObject> consumers = new HashSet<>();
+            HashMap<AnalyzedEnergyObject, List<Pair<Direction, AnalyzedEnergyObject>>> surroundingBlocks = new HashMap<>();
 
             for (AnalyzedEnergyObject object : visited) {
                 if (this.providers.contains(object)) {
@@ -137,9 +158,10 @@ public final class EnergyGroup {
                 }
 
                 objects.remove(object);
+                surroundingBlocks.put(object, this.surroundingBlocks.get(object));
             }
 
-            groups.add(new EnergyGroup(consumers, providers, transfers));
+            groups.add(new EnergyGroup(consumers, providers, transfers, surroundingBlocks));
             visited.clear();
 
             if (objects.isEmpty()) {
@@ -157,14 +179,7 @@ public final class EnergyGroup {
             return;
         }
 
-        for (Direction direction : Direction.values()) {
-            Vector3i newPosition = Vector3i.add(direction.getOffset(), start.position());
-
-            getAllObjects()
-                    .stream()
-                    .filter(object -> object.position().equals(newPosition))
-                    .findAny()
-                    .ifPresent(object -> fillConnections(object, visited));
-        }
+        surroundingBlocks.get(start)
+                .forEach(object -> fillConnections(object.item2(), visited));
     }
 }

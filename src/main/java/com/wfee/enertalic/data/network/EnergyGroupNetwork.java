@@ -1,18 +1,17 @@
 package com.wfee.enertalic.data.network;
 
 import com.hypixel.hytale.logger.HytaleLogger;
-import com.hypixel.hytale.math.vector.Vector3i;
 import com.wfee.enertalic.components.EnergyNode;
 import com.wfee.enertalic.components.EnergyTransfer;
 import com.wfee.enertalic.data.EnergyConfig;
 import com.wfee.enertalic.util.AnalyzedEnergyObject;
 import com.wfee.enertalic.util.Direction;
 import com.wfee.enertalic.util.EnergyGroup;
+import com.wfee.enertalic.util.Pair;
 
 import javax.annotation.Nullable;
 import java.util.*;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 
 public class EnergyGroupNetwork {
     private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
@@ -51,7 +50,6 @@ public class EnergyGroupNetwork {
         if (object.energyObject() instanceof EnergyNode) {
             if (currentEdge != null && !currentEdge.isEmpty()) {
                 addEdge(currentEdge.getFirst(), object, currentEdge, getEdgeCapacity(currentEdge));
-
                 currentEdge = null;
             }
         } else if (object.energyObject() instanceof EnergyTransfer transfer) {
@@ -120,38 +118,20 @@ public class EnergyGroupNetwork {
 
     private long getSurroundingObjects(AnalyzedEnergyObject object, EnergyGroup group, List<AnalyzedEnergyObject> surroundingPassthroughObjects) {
         long surrounding = 0;
-        for (Direction direction : Direction.values()) {
-            EnergyConfig config  = object.energyObject().getEnergySideConfig().getDirection(direction);
+        for (Pair<Direction, AnalyzedEnergyObject> pair : group.getSurroundingBlocks().get(object)) {
+            EnergyConfig config  = object.energyObject().getEnergySideConfig().getDirection(pair.item1());
 
-            if (config == EnergyConfig.OFF) {
-                continue;
-            }
-
-            Vector3i searchPosition = object.position().clone().add(direction.getOffset());
-
-            surrounding += Stream.concat(Stream.concat(
-                    group.getConsumers().stream(),
-                    group.getTransfers().stream()),
-                    group.getProviders().stream()
-            )
-                    .filter(objectPosition -> objectPosition.position().equals(searchPosition))
-                    .count();
+            surrounding++;
 
             if (!config.canExport()) {
                 continue;
             }
 
-            Stream.concat(group.getConsumers().stream(), group.getTransfers().stream())
-                    .filter(objectPosition -> objectPosition.position().equals(searchPosition))
-                    .filter(energyObject ->
-                            energyObject
-                                    .energyObject()
-                                    .getEnergySideConfig()
-                                    .getDirection(direction.getOpposite())
-                                    .canImport()
-                    )
-                    .findAny()
-                    .ifPresent(surroundingPassthroughObjects::add);
+            if (group.getConsumers().contains(pair.item2()) ||
+                    group.getTransfers().contains(pair.item2()) ||
+                    pair.item2().energyObject().getEnergySideConfig().getDirection(pair.item1().getOpposite()).canImport()) {
+                surroundingPassthroughObjects.add(pair.item2());
+            }
         }
 
         return surrounding;
