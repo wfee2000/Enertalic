@@ -6,9 +6,23 @@ A Hytale Library for Energy Mods
 
 This library is in not yet stable so expect issues.
 
-## Usage
+## Importing
 
-There are two types of components
+Following repository must be present:
+```
+repositories {
+    maven ("https://cursemaven.com")
+}
+```
+
+To include the most recent version of this library add this:
+```
+dependencies {
+    implementation("curse.maven:Enertalic-1435032:7555076")
+}
+```
+
+## Components
 
 ### EnergyNode
 
@@ -60,7 +74,7 @@ An energy transfer (cable) that transports energy with a certain capacity
           // The Config of the block sides 
           // 0 is only input 
           // 1 is only output 
-          // 2 is input and output (not supported for nodes yet) 
+          // 2 is input and output
           // 3 is off
           "EnergySideConfig": {
             "East": 2,
