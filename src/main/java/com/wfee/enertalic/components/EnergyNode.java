@@ -9,6 +9,7 @@ import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.wfee.enertalic.Enertalic;
 import com.wfee.enertalic.util.EnergyListener;
+import com.wfee.enertalic.util.EnergyUpdateType;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -36,8 +37,7 @@ public class EnergyNode extends EnergyObject {
 
     private long currentEnergy = 0L;
     private long maxEnergy = 0L;
-    private final List<EnergyListener> energyAddListeners = new ArrayList<>();
-    private final List<EnergyListener> energyRemoveListeners = new ArrayList<>();
+    private final List<EnergyListener> energyUpdateListeners = new ArrayList<>();
 
     public long getCurrentEnergy()
     {
@@ -52,7 +52,7 @@ public class EnergyNode extends EnergyObject {
         }
 
         this.currentEnergy += value;
-        energyAddListeners.forEach(listener -> acceptListener(listener, energyAddListeners));
+        acceptListeners(EnergyUpdateType.Add);
     }
 
     public void removeEnergy(long value) {
@@ -61,7 +61,7 @@ public class EnergyNode extends EnergyObject {
         }
 
         this.currentEnergy -= value;
-        energyRemoveListeners.forEach(listener -> acceptListener(listener, energyRemoveListeners));
+        acceptListeners(EnergyUpdateType.Remove);
     }
 
     public long getMaxEnergy() {
@@ -89,19 +89,19 @@ public class EnergyNode extends EnergyObject {
         return maxEnergy - currentEnergy;
     }
 
-    public void onEnergyAdded(EnergyListener listener) {
-        energyAddListeners.add(listener);
+    public void onEnergyUpdated(EnergyListener listener) {
+        this.energyUpdateListeners.add(listener);
     }
 
-    public void onEnergyRemoved(EnergyListener listener) {
-        energyRemoveListeners.add(listener);
-    }
+    private void acceptListeners(EnergyUpdateType updateType) {
+        this.energyUpdateListeners.forEach(listener -> {
+            if (listener.energyUpdateType() == EnergyUpdateType.All || listener.energyUpdateType() == updateType) {
+                listener.accept(this.currentEnergy);
 
-    private void acceptListener(EnergyListener listener, List<EnergyListener> list) {
-        listener.accept(this.currentEnergy);
-
-        if (listener.activateOnce()) {
-            list.remove(listener);
-        }
+                if (listener.activateOnce()) {
+                    this.energyUpdateListeners.remove(listener);
+                }
+            }
+        });
     }
 }

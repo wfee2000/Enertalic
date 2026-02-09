@@ -176,7 +176,11 @@ public class EnergyGroupNetwork {
             if (node.getCurrentEnergy() < transfer) {
                 needsRebalancing = true;
                 edge.setCapacity(Math.round(node.getCurrentEnergy() / dt));
-                node.onEnergyAdded(new EnergyListener(true, _ -> energyUpdate.accept(edge)));
+                node.onEnergyUpdated(new EnergyListener(
+                        true,
+                        _ -> energyUpdate.accept(edge),
+                        EnergyUpdateType.Add
+                ));
             }
         }
 
@@ -190,7 +194,11 @@ public class EnergyGroupNetwork {
             if (node.getEnergyRemaining() < transfer) {
                 needsRebalancing = true;
                 edge.setCapacity(Math.round(node.getEnergyRemaining() / dt));
-                node.onEnergyRemoved(new EnergyListener(true, _ ->  energyUpdate.accept(edge)));
+                node.onEnergyUpdated(new EnergyListener(
+                        true,
+                        _ ->  energyUpdate.accept(edge),
+                        EnergyUpdateType.Remove
+                ));
             }
         }
 
