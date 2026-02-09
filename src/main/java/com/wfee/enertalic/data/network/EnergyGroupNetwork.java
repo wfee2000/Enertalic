@@ -4,10 +4,7 @@ import com.hypixel.hytale.logger.HytaleLogger;
 import com.wfee.enertalic.components.EnergyNode;
 import com.wfee.enertalic.components.EnergyTransfer;
 import com.wfee.enertalic.data.EnergyConfig;
-import com.wfee.enertalic.util.AnalyzedEnergyObject;
-import com.wfee.enertalic.util.Direction;
-import com.wfee.enertalic.util.EnergyGroup;
-import com.wfee.enertalic.util.Pair;
+import com.wfee.enertalic.util.*;
 
 import javax.annotation.Nullable;
 import java.util.*;
@@ -179,7 +176,7 @@ public class EnergyGroupNetwork {
             if (node.getCurrentEnergy() < transfer) {
                 needsRebalancing = true;
                 edge.setCapacity(Math.round(node.getCurrentEnergy() / dt));
-                node.onEnergyAdded(() -> energyUpdate.accept(edge));
+                node.onEnergyAdded(new EnergyListener(true, _ -> energyUpdate.accept(edge)));
             }
         }
 
@@ -193,7 +190,7 @@ public class EnergyGroupNetwork {
             if (node.getEnergyRemaining() < transfer) {
                 needsRebalancing = true;
                 edge.setCapacity(Math.round(node.getEnergyRemaining() / dt));
-                node.onEnergyRemoved(() ->  energyUpdate.accept(edge));
+                node.onEnergyRemoved(new EnergyListener(true, _ ->  energyUpdate.accept(edge)));
             }
         }
 

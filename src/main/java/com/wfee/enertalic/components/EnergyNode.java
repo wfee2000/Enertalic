@@ -8,6 +8,7 @@ import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.wfee.enertalic.Enertalic;
+import com.wfee.enertalic.util.EnergyListener;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -35,8 +36,8 @@ public class EnergyNode extends EnergyObject {
 
     private long currentEnergy = 0L;
     private long maxEnergy = 0L;
-    private final List<Runnable> energyAddListeners = new ArrayList<>();
-    private final List<Runnable> energyRemoveListeners = new ArrayList<>();
+    private final List<EnergyListener> energyAddListeners = new ArrayList<>();
+    private final List<EnergyListener> energyRemoveListeners = new ArrayList<>();
 
     public long getCurrentEnergy()
     {
@@ -51,8 +52,7 @@ public class EnergyNode extends EnergyObject {
         }
 
         this.currentEnergy += value;
-        energyAddListeners.forEach(Runnable::run);
-        energyAddListeners.clear();
+        energyAddListeners.forEach(listener -> acceptListener(listener, energyAddListeners));
     }
 
     public void removeEnergy(long value) {
@@ -61,8 +61,7 @@ public class EnergyNode extends EnergyObject {
         }
 
         this.currentEnergy -= value;
-        energyRemoveListeners.forEach(Runnable::run);
-        energyRemoveListeners.clear();
+        energyRemoveListeners.forEach(listener -> acceptListener(listener, energyRemoveListeners));
     }
 
     public long getMaxEnergy() {
@@ -90,11 +89,19 @@ public class EnergyNode extends EnergyObject {
         return maxEnergy - currentEnergy;
     }
 
-    public void onEnergyAdded(Runnable listener) {
+    public void onEnergyAdded(EnergyListener listener) {
         energyAddListeners.add(listener);
     }
 
-    public void onEnergyRemoved(Runnable  listener) {
+    public void onEnergyRemoved(EnergyListener listener) {
         energyRemoveListeners.add(listener);
+    }
+
+    private void acceptListener(EnergyListener listener, List<EnergyListener> list) {
+        listener.accept(this.currentEnergy);
+
+        if (listener.activateOnce()) {
+            list.remove(listener);
+        }
     }
 }
