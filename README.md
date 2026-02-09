@@ -22,6 +22,8 @@ dependencies {
 }
 ```
 
+To clarify usage check out [Talectrified](https://github.com/wfee2000/Talectrified)
+
 ## Components
 
 ### EnergyNode
@@ -90,5 +92,5 @@ An energy transfer (cable) that transports energy with a certain capacity
   }
 }
 ```
-Once a network is established (at least one input and one output that are connected)
-energy should start flowing from the output to the input.
+
+Once a network is established (at least one input and one output that are connected) energy should start flowing from the output to the input.
