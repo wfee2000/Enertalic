@@ -10,10 +10,7 @@ import com.wfee.enertalic.components.EnergyNode;
 import com.wfee.enertalic.components.EnergyObject;
 import com.wfee.enertalic.components.EnergyTransfer;
 import com.wfee.enertalic.data.EnergyConfig;
-import com.wfee.enertalic.util.AnalyzedEnergyObject;
-import com.wfee.enertalic.util.Direction;
-import com.wfee.enertalic.util.EnergyGroup;
-import com.wfee.enertalic.util.Pair;
+import com.wfee.enertalic.util.*;
 
 import java.util.*;
 
@@ -43,13 +40,56 @@ public class EnergyService {
 
     public void addNewObject(int x, int y, int z, World world, AddReason addReason) {
         world.execute(() -> {
-            if (addReason == AddReason.LOAD && groups
+            Vector3i position = new Vector3i(x, y, z);
+
+            if (addReason != AddReason.LOAD || groups
                     .stream()
-                    .anyMatch(group -> group.contains(new Vector3i(x,y,z)))) {
-                return;
+                    .noneMatch(group -> group.contains(position))) {
+                groups.add(analyzeGroup(position, world));
             }
 
-            groups.add(analyzeGroup(x, y, z, world));
+            AnalyzedEnergyObject energyObject = groups.stream()
+                    .map(group -> group.getObjectForPosition(position))
+                    .filter(Objects::nonNull)
+                    .findAny()
+                    .orElseThrow(() -> new IllegalStateException("Object must be in a group"));
+
+            energyObject.energyObject().getEnergySideConfig().onChange(new ReactiveListener<>(
+                    false,
+                    _ -> {
+                        EnergyGroup currentGroup = this.groups
+                                .stream()
+                                .filter(energyGroup ->
+                                        energyGroup.getSurroundingBlocks().containsKey(energyObject)
+                                ).findAny()
+                                .orElse(null);
+
+                        if (currentGroup == null) {
+                            return;
+                        }
+
+                        List<EnergyGroup> newGroups = currentGroup.checkConnections();
+
+                        if (currentGroup.isEmpty() || newGroups == null) {
+                            return;
+                        }
+
+                        this.groups.remove(currentGroup);
+
+                        EnergyGroupNetwork network = currentGroup.getNetwork();
+                        boolean hasNetwork = network != null;
+
+                        this.groups.addAll(newGroups);
+
+                        if (hasNetwork) {
+                            if (!networks.remove(network)) {
+                                throw new IllegalStateException("Object must be in a Network");
+                            }
+
+                            newGroups.forEach(this::createAndSetNewNetwork);
+                        }
+                    },
+                    UpdateType.All));
         });
     }
 
@@ -111,8 +151,7 @@ public class EnergyService {
         return network;
     }
 
-    private EnergyGroup analyzeGroup(int x, int y, int z, World world) {
-        Vector3i position = new Vector3i(x, y, z);
+    private EnergyGroup analyzeGroup(Vector3i position, World world) {
         EnergyGroup group = new EnergyGroup(new HashSet<>(), new HashSet<>(), new HashSet<>(), new HashMap<>());
 
         List<EnergyGroup> existingGroups = new ArrayList<>();
@@ -143,12 +182,16 @@ public class EnergyService {
             object = new AnalyzedEnergyObject(node, position, false);
 
             for (Direction direction : Direction.values()) {
-                EnergyConfig config = node.getEnergySideConfig().getDirection(direction);
+                EnergyConfig config = node.getEnergySideConfig().get().getDirection(direction);
 
                 if (config.canExport()) {
                     group.getProviders().add(object);
                 } else if (config.canImport()) {
                     group.getConsumers().add(object);
+                }
+
+                if (config == EnergyConfig.INOUT) {
+                    throw new IllegalArgumentException("The energy config of a node can not be in and out");
                 }
             }
 
@@ -176,7 +219,7 @@ public class EnergyService {
         List<EnergyGroup> existingGroups = new ArrayList<>();
 
         for (Direction direction : Direction.values()) {
-            if (last.energyObject().getEnergySideConfig().getDirection(direction) != EnergyConfig.OFF) {
+            if (last.energyObject().getEnergySideConfig().get().getDirection(direction) != EnergyConfig.OFF) {
                 List<EnergyGroup> analyzedGroups = new ArrayList<>();
 
                 AnalyzedEnergyObject object = analyzePosition(

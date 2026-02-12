@@ -116,7 +116,7 @@ public class EnergyGroupNetwork {
     private long getSurroundingObjects(AnalyzedEnergyObject object, EnergyGroup group, List<AnalyzedEnergyObject> surroundingPassthroughObjects) {
         long surrounding = 0;
         for (Pair<Direction, AnalyzedEnergyObject> pair : group.getSurroundingBlocks().get(object)) {
-            EnergyConfig config  = object.energyObject().getEnergySideConfig().getDirection(pair.item1());
+            EnergyConfig config  = object.energyObject().getEnergySideConfig().get().getDirection(pair.item1());
 
             surrounding++;
 
@@ -126,7 +126,7 @@ public class EnergyGroupNetwork {
 
             if (group.getConsumers().contains(pair.item2()) ||
                     group.getTransfers().contains(pair.item2()) ||
-                    pair.item2().energyObject().getEnergySideConfig().getDirection(pair.item1().getOpposite()).canImport()) {
+                    pair.item2().energyObject().getEnergySideConfig().get().getDirection(pair.item1().getOpposite()).canImport()) {
                 surroundingPassthroughObjects.add(pair.item2());
             }
         }
@@ -173,13 +173,13 @@ public class EnergyGroupNetwork {
                 throw new IllegalArgumentException(edge.getDestination().energyObject().getClass().getName());
             }
 
-            if (node.getCurrentEnergy() < transfer) {
+            if (node.getCurrentEnergy().get() < transfer) {
                 needsRebalancing = true;
-                edge.setCapacity(Math.round(node.getCurrentEnergy() / dt));
-                node.onEnergyUpdated(new EnergyListener(
+                edge.setCapacity(Math.round(node.getCurrentEnergy().get() / dt));
+                node.getCurrentEnergy().onChange(new ReactiveListener<>(
                         true,
                         _ -> energyUpdate.accept(edge),
-                        EnergyUpdateType.Add
+                        UpdateType.Increment
                 ));
             }
         }
@@ -194,10 +194,10 @@ public class EnergyGroupNetwork {
             if (node.getEnergyRemaining() < transfer) {
                 needsRebalancing = true;
                 edge.setCapacity(Math.round(node.getEnergyRemaining() / dt));
-                node.onEnergyUpdated(new EnergyListener(
+                node.getCurrentEnergy().onChange(new ReactiveListener<>(
                         true,
                         _ ->  energyUpdate.accept(edge),
-                        EnergyUpdateType.Remove
+                        UpdateType.Decrement
                 ));
             }
         }
@@ -218,7 +218,7 @@ public class EnergyGroupNetwork {
                 throw new IllegalArgumentException(edge.getDestination().energyObject().getClass().getName());
             }
 
-            node.removeEnergy(transfer);
+            node.getCurrentEnergy().subtract(transfer);
         }
 
         for (Edge edge : sinkEdges) {
@@ -228,7 +228,7 @@ public class EnergyGroupNetwork {
                 throw new IllegalArgumentException(edge.getDestination().energyObject().getClass().getName());
             }
 
-            node.addEnergy(transfer);
+            node.getCurrentEnergy().add(transfer);
         }
     }
 

@@ -4,8 +4,8 @@ import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.component.Component;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
-import com.wfee.enertalic.data.EnergyConfig;
 import com.wfee.enertalic.data.EnergySideConfig;
+import com.wfee.enertalic.util.ReactiveProperty;
 
 import javax.annotation.Nullable;
 
@@ -14,36 +14,32 @@ public abstract class EnergyObject implements Component<ChunkStore> {
     protected static final BuilderCodec<EnergyObject> CODEC =
             BuilderCodec.abstractBuilder(EnergyObject.class)
                     .append(ENERGY_SIDE_CONFIG,
-                            EnergyObject::setEnergySideConfig,
-                            EnergyObject::getEnergySideConfig)
+                            (energyObject, value) -> energyObject.energySideConfig.set(value),
+                            energyObject -> energyObject.getEnergySideConfig().get())
                     .add()
                     .build();
+
+    public EnergyObject() {}
+
+    public EnergyObject(EnergyObject energyObject) {
+        this.energySideConfig.set(energyObject.getEnergySideConfig().get());
+    }
 
     @Nullable
     @Override
     public Component<ChunkStore> clone() {
         try {
             EnergyObject clone = (EnergyObject) super.clone();
-            clone.setEnergySideConfig(this.energySideConfig);
+            clone.energySideConfig.set(this.energySideConfig.get());
             return clone;
         } catch (CloneNotSupportedException e) {
             return null;
         }
     }
 
-    private EnergySideConfig energySideConfig;
+    private final ReactiveProperty<EnergySideConfig> energySideConfig = new ReactiveProperty<>(new EnergySideConfig());
 
-    public EnergySideConfig getEnergySideConfig()
-    {
+    public ReactiveProperty<EnergySideConfig> getEnergySideConfig() {
         return energySideConfig;
-    }
-
-    public void setEnergySideConfig(EnergySideConfig value)
-    {
-        if (this instanceof EnergyNode && value.countMatching(config -> config == EnergyConfig.INOUT) != 0) {
-            throw new IllegalArgumentException("In and Outputting simultaneously is currently not supported");
-        }
-
-        this.energySideConfig = value;
     }
 }

@@ -8,13 +8,10 @@ import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.wfee.enertalic.Enertalic;
-import com.wfee.enertalic.util.EnergyListener;
-import com.wfee.enertalic.util.EnergyUpdateType;
+import com.wfee.enertalic.util.ReactiveNumericProperty;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
 
 public class EnergyNode extends EnergyObject {
     public static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
@@ -26,8 +23,8 @@ public class EnergyNode extends EnergyObject {
             BuilderCodec
                     .builder(EnergyNode.class, EnergyNode::new, EnergyObject.CODEC)
                         .append(CURRENT_ENERGY,
-                                (object, value) -> object.currentEnergy = value,
-                                object -> object.currentEnergy)
+                                (object, value) -> object.currentEnergy.set(value),
+                                object -> object.currentEnergy.get())
                         .add()
                         .append(MAX_ENERGY,
                                 (object, value) -> object.maxEnergy = value,
@@ -35,33 +32,22 @@ public class EnergyNode extends EnergyObject {
                         .add()
                     .build();
 
-    private long currentEnergy = 0L;
+    private final ReactiveNumericProperty currentEnergy = new ReactiveNumericProperty(0L);
     private long maxEnergy = 0L;
-    private final List<EnergyListener> energyUpdateListeners = new ArrayList<>();
 
-    public long getCurrentEnergy()
+    public EnergyNode() {
+        super();
+    }
+
+    public EnergyNode(EnergyNode energyNode) {
+        super(energyNode);
+        this.currentEnergy.set(energyNode.currentEnergy.get());
+        this.maxEnergy = energyNode.maxEnergy;
+    }
+
+    public ReactiveNumericProperty getCurrentEnergy()
     {
         return currentEnergy;
-    }
-
-    public void addEnergy(long value) {
-        if (getEnergyRemaining() < value)
-        {
-            this.currentEnergy = this.maxEnergy;
-            throw new IllegalArgumentException();
-        }
-
-        this.currentEnergy += value;
-        acceptListeners(EnergyUpdateType.Add);
-    }
-
-    public void removeEnergy(long value) {
-        if (currentEnergy < value) {
-            throw new IllegalArgumentException(String.format("Can not remove %d energy from %d stored", value, this.currentEnergy));
-        }
-
-        this.currentEnergy -= value;
-        acceptListeners(EnergyUpdateType.Remove);
     }
 
     public long getMaxEnergy() {
@@ -73,35 +59,14 @@ public class EnergyNode extends EnergyObject {
         return Enertalic.get().getEnergyNodeComponentType();
     }
 
+    @SuppressWarnings("MethodDoesntCallSuperMethod")
     @Nullable
     @Override
     public Component<ChunkStore> clone() {
-        EnergyNode clone = (EnergyNode) super.clone();
-
-        if (clone == null) return null;
-
-        clone.currentEnergy = this.currentEnergy;
-        clone.maxEnergy = this.maxEnergy;
-        return clone;
+        return new EnergyNode(this);
     }
 
     public long getEnergyRemaining() {
-        return maxEnergy - currentEnergy;
-    }
-
-    public void onEnergyUpdated(EnergyListener listener) {
-        this.energyUpdateListeners.add(listener);
-    }
-
-    private void acceptListeners(EnergyUpdateType updateType) {
-        this.energyUpdateListeners.forEach(listener -> {
-            if (listener.energyUpdateType() == EnergyUpdateType.All || listener.energyUpdateType() == updateType) {
-                listener.accept(this.currentEnergy);
-
-                if (listener.activateOnce()) {
-                    this.energyUpdateListeners.remove(listener);
-                }
-            }
-        });
+        return currentEnergy.computeResult(currentEnergy -> maxEnergy - currentEnergy);
     }
 }

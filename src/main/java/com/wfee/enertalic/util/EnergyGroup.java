@@ -2,9 +2,9 @@ package com.wfee.enertalic.util;
 
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.vector.Vector3i;
-import com.wfee.enertalic.components.EnergyObject;
 import com.wfee.enertalic.data.network.EnergyGroupNetwork;
 
+import javax.annotation.Nullable;
 import java.util.*;
 import java.util.function.Predicate;
 
@@ -36,6 +36,7 @@ public final class EnergyGroup {
                 .anyMatch(analyzedObject -> analyzedObject.equals(position));
     }
 
+    @Nullable
     public AnalyzedEnergyObject getObjectForPosition(Vector3i position) {
         return surroundingBlocks
                 .keySet()
@@ -43,13 +44,6 @@ public final class EnergyGroup {
                 .filter(object -> object.position().equals(position))
                 .findAny()
                 .orElse(null);
-    }
-
-    public boolean contains(EnergyObject object) {
-        return getAllObjects()
-                .stream()
-                .map(AnalyzedEnergyObject::energyObject)
-                .anyMatch(analyzedObject -> analyzedObject == object);
     }
 
     public Map<AnalyzedEnergyObject, List<Pair<Direction, AnalyzedEnergyObject>>> getSurroundingBlocks() {
