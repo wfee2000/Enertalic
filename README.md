@@ -15,10 +15,10 @@ repositories {
 }
 ```
 
-To include the most recent version of this library add this:
+To include the most recent version of this library add this dependency:
 ```
 dependencies {
-    implementation("curse.maven:Enertalic-1435032:7599531")
+    compileOnly("curse.maven:Enertalic-1435032:7613677")
 }
 ```
 
