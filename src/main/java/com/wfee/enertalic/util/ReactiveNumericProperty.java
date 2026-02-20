@@ -6,10 +6,10 @@ public class ReactiveNumericProperty extends ReactiveProperty<Long> {
     }
 
     public void add(long value) {
-        set(get() + value, UpdateType.Increment);
+        modify(number -> number + value, UpdateType.Increment);
     }
 
     public void subtract(long value) {
-        set(get() - value, UpdateType.Decrement);
+        modify(number -> number - value, UpdateType.Decrement);
     }
 }
