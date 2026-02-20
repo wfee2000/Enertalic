@@ -7,6 +7,7 @@ import com.hypixel.hytale.logger.HytaleLogger;
 import com.wfee.enertalic.util.Direction;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -14,14 +15,13 @@ import java.util.stream.Collectors;
 public class EnergySideConfig {
     private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
 
-    public final static KeyedCodec<Integer>[] DIRECTIONS = new KeyedCodec[]{
+    public final static List<KeyedCodec<Integer>> DIRECTIONS = List.of(
             new KeyedCodec<>("East", Codec.INTEGER),
             new KeyedCodec<>("West", Codec.INTEGER),
             new KeyedCodec<>("Up", Codec.INTEGER),
             new KeyedCodec<>("Down", Codec.INTEGER),
             new KeyedCodec<>("South", Codec.INTEGER),
-            new KeyedCodec<>("North", Codec.INTEGER),
-    };
+            new KeyedCodec<>("North", Codec.INTEGER));
     public final static BuilderCodec<EnergySideConfig> CODEC;
 
     static {
@@ -30,7 +30,7 @@ public class EnergySideConfig {
         for (int i = 0; i < 6; i++) {
             Direction direction = Direction.values()[i];
             builder = builder
-                    .append(DIRECTIONS[i],
+                    .append(DIRECTIONS.get(i),
                             (object, value) ->
                                     object.setDirection(direction, EnergyConfig.values()[value]),
                             object -> object.getDirection(direction).ordinal())
