@@ -2,6 +2,7 @@ package com.wfee.enertalic.util;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 public class ReactiveProperty<T> {
@@ -17,10 +18,18 @@ public class ReactiveProperty<T> {
     }
 
     public void modify(Function<T,T> modificator) {
-        set(modificator.apply(value));
+        modify(modificator, UpdateType.All);
+    }
+
+    public void modify(Function<T,T> modificator, UpdateType updateType) {
+        set(modificator.apply(value), updateType);
     }
 
     public void set(T value, UpdateType updateType) {
+        if (Objects.equals(this.value, value)) {
+            return;
+        }
+
         this.value = value;
 
         listeners.forEach(listener -> {
