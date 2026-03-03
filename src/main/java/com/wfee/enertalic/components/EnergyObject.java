@@ -3,6 +3,9 @@ package com.wfee.enertalic.components;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.component.Component;
+import com.hypixel.hytale.component.Holder;
+import com.hypixel.hytale.math.vector.Vector3i;
+import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.wfee.enertalic.data.EnergySideConfig;
 import com.wfee.enertalic.util.ReactiveProperty;
@@ -41,5 +44,22 @@ public abstract class EnergyObject implements Component<ChunkStore> {
 
     public ReactiveProperty<EnergySideConfig> getEnergySideConfig() {
         return energySideConfig;
+    }
+
+    @Nullable
+    public static EnergyObject fromWorld(World world, Vector3i position) {
+        Holder<ChunkStore> holder = world.getBlockComponentHolder(position.x, position.y, position.z);
+
+        if (holder == null) {
+            return null;
+        }
+
+        EnergyObject object = holder.getComponent(EnergyNode.getComponentType());
+
+        if (object == null) {
+            object = holder.getComponent(EnergyTransfer.getComponentType());
+        }
+
+        return object;
     }
 }

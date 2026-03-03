@@ -259,17 +259,7 @@ public class EnergyService {
             return analyzedObject.get();
         }
 
-        Holder<ChunkStore> holder = world.getBlockComponentHolder(position.x, position.y, position.z);
-
-        if (holder == null) {
-            return null;
-        }
-
-        EnergyObject object = holder.getComponent(EnergyNode.getComponentType());
-
-        if (object == null) {
-            object = holder.getComponent(EnergyTransfer.getComponentType());
-        }
+        EnergyObject object = EnergyObject.fromWorld(world, position);
 
         if (object == null) {
             return null;
